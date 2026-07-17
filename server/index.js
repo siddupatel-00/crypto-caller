@@ -315,56 +315,82 @@ io.on('connection', (socket) => {
 
   // Call Initiation
   socket.on('call-request', ({ targetId, callerData }) => {
+    const callerId = socketToUser.get(socket.id);
+    console.log(`[Signaling Server Log] Received 'call-request' from socket ${socket.id} (user ${callerId}) targeting user ${targetId}.`);
     const targetSocket = onlineUsers.get(targetId);
     if (targetSocket) {
+      console.log(`[Signaling Server Log] Forwarding 'incoming-call' to target socket ${targetSocket} (user ${targetId}).`);
       io.to(targetSocket).emit('incoming-call', { 
-        callerId: socketToUser.get(socket.id),
+        callerId,
         callerData // { username }
       });
     } else {
+      console.warn(`[Signaling Server Log] Target user ${targetId} is offline. Sending 'call-failed' to caller.`);
       socket.emit('call-failed', { reason: 'User offline' });
     }
   });
 
   socket.on('call-accept', ({ targetId }) => {
+    const receiverId = socketToUser.get(socket.id);
+    console.log(`[Signaling Server Log] Received 'call-accept' from socket ${socket.id} (user ${receiverId}) targeting user ${targetId}.`);
     const targetSocket = onlineUsers.get(targetId);
     if (targetSocket) {
+      console.log(`[Signaling Server Log] Forwarding 'call-accepted' to target socket ${targetSocket} (user ${targetId}).`);
       io.to(targetSocket).emit('call-accepted', {
-        targetId: socketToUser.get(socket.id)
+        targetId: receiverId
       });
+    } else {
+      console.warn(`[Signaling Server Log] Caller user ${targetId} is offline for accept notification.`);
     }
   });
 
   socket.on('call-decline', ({ targetId }) => {
+    const declinerId = socketToUser.get(socket.id);
+    console.log(`[Signaling Server Log] Received 'call-decline' from socket ${socket.id} (user ${declinerId}) targeting user ${targetId}.`);
     const targetSocket = onlineUsers.get(targetId);
     if (targetSocket) {
+      console.log(`[Signaling Server Log] Forwarding 'call-declined' to target socket ${targetSocket} (user ${targetId}).`);
       io.to(targetSocket).emit('call-declined');
     }
   });
 
   // WebRTC Signaling
   socket.on('offer', ({ targetId, offer }) => {
+    const fromId = socketToUser.get(socket.id);
+    console.log(`[Signaling Server Log] Received 'offer' from socket ${socket.id} (user ${fromId}) targeting user ${targetId}.`);
     const targetSocket = onlineUsers.get(targetId);
     if (targetSocket) {
-      io.to(targetSocket).emit('offer', { offer, from: socketToUser.get(socket.id) });
+      console.log(`[Signaling Server Log] Forwarding 'offer' to target socket ${targetSocket} (user ${targetId}).`);
+      io.to(targetSocket).emit('offer', { offer, from: fromId });
+    } else {
+      console.warn(`[Signaling Server Log] Target ${targetId} offline for 'offer'.`);
     }
   });
 
   socket.on('answer', ({ targetId, answer }) => {
+    const fromId = socketToUser.get(socket.id);
+    console.log(`[Signaling Server Log] Received 'answer' from socket ${socket.id} (user ${fromId}) targeting user ${targetId}.`);
     const targetSocket = onlineUsers.get(targetId);
     if (targetSocket) {
-      io.to(targetSocket).emit('answer', { answer, from: socketToUser.get(socket.id) });
+      console.log(`[Signaling Server Log] Forwarding 'answer' to target socket ${targetSocket} (user ${targetId}).`);
+      io.to(targetSocket).emit('answer', { answer, from: fromId });
+    } else {
+      console.warn(`[Signaling Server Log] Target ${targetId} offline for 'answer'.`);
     }
   });
 
   socket.on('ice-candidate', ({ targetId, candidate }) => {
+    const fromId = socketToUser.get(socket.id);
+    console.log(`[Signaling Server Log] Received 'ice-candidate' from socket ${socket.id} (user ${fromId}) targeting user ${targetId}. Candidate: ${candidate.candidate.substring(0, 35)}...`);
     const targetSocket = onlineUsers.get(targetId);
     if (targetSocket) {
-      io.to(targetSocket).emit('ice-candidate', { candidate, from: socketToUser.get(socket.id) });
+      io.to(targetSocket).emit('ice-candidate', { candidate, from: fromId });
     }
   });
 
   socket.on('end-call', ({ targetId }) => {
+    const fromId = socketToUser.get(socket.id);
+    console.log(`[Signaling Server Log] Received 'end-call' from socket ${socket.id} (user ${fromId}) targeting user ${targetId}.`);
     const targetSocket = onlineUsers.get(targetId);
     if (targetSocket) {
       io.to(targetSocket).emit('call-ended');

@@ -92,6 +92,8 @@ export default function DashboardScreen() {
     socket.on('user-status-changed', fetchFriends);
     
     socket.on('incoming-call', (data) => {
+      console.log(`[Signaling Log] [User B] Received 'incoming-call' event! data:`, data);
+      console.log(`[Signaling Log] [User B] Navigating to Call screen: /call/${data.callerId}?incoming=true...`);
       navigate(`/call/${data.callerId}?incoming=true&callerName=${data.callerData.username}&type=${data.callerData.type || 'video'}`);
     });
 

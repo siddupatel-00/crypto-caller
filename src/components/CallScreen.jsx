@@ -102,9 +102,18 @@ export default function CallScreen() {
     }
   }, [callStatus, ringTimeout, isIncoming, declineCall, endCall, navigate, ringtoneEnabled]);
 
-  const handleEndCall = () => endCall();
-  const handleAccept = () => acceptCall();
+  console.log(`[Signaling Log] CallScreen mounted. targetId=${targetId}, isIncoming=${isIncoming}, callType=${callType}, callerName=${callerName}`);
+
+  const handleEndCall = () => {
+    console.log(`[Signaling Log] End Call button pressed.`);
+    endCall();
+  };
+  const handleAccept = () => {
+    console.log(`[Signaling Log] User B pressed Accept call button.`);
+    acceptCall();
+  };
   const handleDecline = () => {
+    console.log(`[Signaling Log] User B pressed Decline call button.`);
     declineCall();
     navigate('/dashboard');
   };
