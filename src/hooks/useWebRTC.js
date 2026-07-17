@@ -6,6 +6,16 @@ const ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    { 
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    { 
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
   ],
 };
 
@@ -61,18 +71,10 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+        video: type === 'voice' ? false : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
       });
       
-      if (type === 'voice') {
-        const videoTrack = stream.getVideoTracks()[0];
-        if (videoTrack) {
-          videoTrack.enabled = false;
-        }
-        setIsVideoOn(false);
-      } else {
-        setIsVideoOn(true);
-      }
+      setIsVideoOn(type !== 'voice');
 
       setLocalStream(stream);
       localStreamRef.current = stream;
