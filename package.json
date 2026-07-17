@@ -1,0 +1,72 @@
+{
+  "name": "callverse",
+  "private": true,
+  "version": "1.0.0",
+  "description": "CallVerse - Free, secure, peer-to-peer calling app",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "vite build && electron-builder --mac",
+    "electron:build:win": "vite build && electron-builder --win",
+    "electron:build:linux": "vite build && electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.callverse.app",
+    "productName": "CallVerse",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.social-networking",
+      "target": [
+        "dmg"
+      ],
+      "icon": "public/icon.png"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "public/icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "public/icon.png"
+    },
+    "dmg": {
+      "title": "CallVerse",
+      "backgroundColor": "#0a0a0f"
+    }
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.3",
+    "concurrently": "^10.0.3",
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3",
+    "vite": "^8.1.1",
+    "wait-on": "^9.0.10"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/cli": "^8.4.2",
+    "@capacitor/core": "^8.4.2",
+    "classnames": "^2.5.1",
+    "date-fns": "^4.4.0",
+    "firebase": "^12.16.0",
+    "lucide-react": "^1.24.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.1",
+    "socket.io-client": "^4.8.3",
+    "zustand": "^5.0.14"
+  }
+}
