@@ -10,12 +10,12 @@ import {
 } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBx9A957kw2a5xN0guNSTbup6aCJqBn2kg",
-  authDomain: "callverse-00.firebaseapp.com",
-  projectId: "callverse-00",
-  storageBucket: "callverse-00.firebasestorage.app",
-  messagingSenderId: "837741687008",
-  appId: "1:837741687008:web:0a435da70c8a44df812085"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 console.log("Firebase Config:", firebaseConfig);
