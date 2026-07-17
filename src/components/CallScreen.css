@@ -1,9 +1,14 @@
 .call-screen {
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: var(--bg-deep);
+  display: flex;
+  flex-direction: column;
 }
 
 /* ===== Remote Video ===== */
@@ -369,15 +374,16 @@
 
 /* ===== Bottom Controls ===== */
 .call-controls {
-  position: absolute;
+  position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   z-index: 20;
   display: flex;
   justify-content: center;
-  padding: 24px 20px;
-  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  padding: 16px 20px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  background: linear-gradient(transparent, rgba(10, 10, 15, 0.9) 40%);
 }
 
 .call-controls__bar {
@@ -453,29 +459,34 @@
 /* ===== Responsive ===== */
 @media (max-width: 480px) {
   .call-local-video-container {
-    width: 110px;
-    height: 150px;
-    bottom: 110px;
+    width: 100px;
+    height: 140px;
+    bottom: 100px;
     right: 12px;
   }
 
+  .call-controls {
+    padding: 12px 10px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
   .call-controls__bar {
-    gap: 10px;
-    padding: 10px 16px;
+    gap: 8px;
+    padding: 8px 14px;
   }
 
   .call-control-btn {
-    width: 52px;
-    height: 52px;
+    width: 48px;
+    height: 48px;
   }
 
   .call-control-btn--end {
-    width: 60px;
-    height: 60px;
+    width: 56px;
+    height: 56px;
   }
 
   .call-top-bar {
-    padding: 10px 14px;
+    padding: 8px 12px;
   }
 
   .call-start-code {
@@ -484,12 +495,25 @@
   }
 
   .call-avatar--large {
-    width: 100px;
-    height: 100px;
+    width: 90px;
+    height: 90px;
   }
 
   .call-avatar--large .call-avatar__initials {
-    font-size: 32px;
+    font-size: 30px;
+  }
+
+  .call-start-overlay {
+    padding: 20px;
+  }
+
+  .call-start-content {
+    gap: 20px;
+  }
+
+  .call-start-btn {
+    padding: 14px 24px;
+    font-size: 16px;
   }
 }
 

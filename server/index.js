@@ -381,7 +381,7 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = 3001;
-server.listen(PORT, () => {
-  console.log(`🚀 Signaling server running on http://localhost:${PORT}`);
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Signaling server running on port ${PORT}`);
 });
