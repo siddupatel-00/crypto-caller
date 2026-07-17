@@ -12,6 +12,14 @@ const ICE_SERVERS = {
   ],
 };
 
+if (import.meta.env.VITE_TURN_URL && import.meta.env.VITE_TURN_USERNAME && import.meta.env.VITE_TURN_CREDENTIAL) {
+  ICE_SERVERS.iceServers.push({
+    urls: import.meta.env.VITE_TURN_URL,
+    username: import.meta.env.VITE_TURN_USERNAME,
+    credential: import.meta.env.VITE_TURN_CREDENTIAL
+  });
+}
+
 export default function useWebRTC(targetId, isIncoming = false, initialCallType = 'video') {
   const user = useStore((state) => state.user);
   
@@ -27,6 +35,7 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const localStreamRef = useRef(null);
+  const statsIntervalRef = useRef(null);
 
   const createPeerConnection = useCallback(() => {
     console.log('[WebRTC Debug] Creating RTCPeerConnection with servers:', ICE_SERVERS);
@@ -76,9 +85,32 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
       if (pc.connectionState === 'connected') {
         console.log('[WebRTC Debug] ConnectionState is connected! Updating callStatus to connected.');
         setCallStatus('connected');
-      } else if (pc.connectionState === 'failed') {
-        console.error('[WebRTC Debug] Peer Connection failed.');
-        diagnoseFailure(pc);
+        
+        // Start periodic RTCPeerConnection.getStats() logging
+        if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
+        statsIntervalRef.current = setInterval(async () => {
+          if (peerConnection.current && peerConnection.current.connectionState === 'connected') {
+            try {
+              const stats = await peerConnection.current.getStats();
+              stats.forEach(report => {
+                if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+                  console.log(`[WebRTC Stats] Active Candidate Pair: Local=${report.localCandidateId} Remote=${report.remoteCandidateId}, Current RTT=${report.currentRoundTripTime}s`);
+                }
+              });
+            } catch (err) {
+              console.warn('[WebRTC Stats] Error fetching stats', err);
+            }
+          }
+        }, 5000);
+      } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
+        if (pc.connectionState === 'failed') {
+          console.error('[WebRTC Debug] Peer Connection failed.');
+          diagnoseFailure(pc);
+        }
+        if (statsIntervalRef.current) {
+          clearInterval(statsIntervalRef.current);
+          statsIntervalRef.current = null;
+        }
       }
     };
 
@@ -304,6 +336,10 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
   }, []);
 
   const endCall = useCallback((reason = 'missed') => {
+    if (statsIntervalRef.current) {
+      clearInterval(statsIntervalRef.current);
+      statsIntervalRef.current = null;
+    }
     if (peerConnection.current) {
       peerConnection.current.close();
       peerConnection.current = null;

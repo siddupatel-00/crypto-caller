@@ -213,8 +213,8 @@ app.post('/api/friends/alias', async (req, res) => {
   const { userId, friendId, alias } = req.body;
   try {
     await db.execute({
-      sql: 'UPDATE friends SET alias = ? WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)',
-      args: [alias, userId, friendId, friendId, userId]
+      sql: 'UPDATE friends SET alias = ? WHERE user_id = ? AND friend_id = ?',
+      args: [alias, userId, friendId]
     });
     res.json({ success: true });
   } catch (err) {
