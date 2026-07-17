@@ -1,5 +1,5 @@
-import React
-import { SERVER_URL } from '../utils/socket';, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { SERVER_URL } from '../utils/socket';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Star, Trash2, Calendar, Clock } from 'lucide-react';
 import { format } from 'date-fns';

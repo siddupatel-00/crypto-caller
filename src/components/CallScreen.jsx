@@ -1,5 +1,5 @@
-import React
-import { SERVER_URL } from '../utils/socket';, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { SERVER_URL } from '../utils/socket';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Mic, MicOff, Video, VideoOff, Volume2, VolumeX, PhoneOff, PhoneCall, Lock, Phone } from 'lucide-react';
 import useWebRTC from '../hooks/useWebRTC';

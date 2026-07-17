@@ -1,5 +1,5 @@
-import React
-import { SERVER_URL } from '../utils/socket';, { useState } from 'react';
+import React, { useState } from 'react';
+import { SERVER_URL } from '../utils/socket';
 import { Phone, Mail, Lock, User, Globe } from 'lucide-react';
 import useStore from '../store';
 import { 

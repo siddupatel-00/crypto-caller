@@ -1,5 +1,5 @@
-import React
-import { SERVER_URL } from '../utils/socket';, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { SERVER_URL } from '../utils/socket';
 import { useNavigate } from 'react-router-dom';
 import { UserPlus, Clock, Users, Phone, LogOut, Check, X, Copy, Sparkles, Smile, Settings, Video, Star, Trash2, Edit2, Calendar } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
