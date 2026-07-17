@@ -29,30 +29,65 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
   const localStreamRef = useRef(null);
 
   const createPeerConnection = useCallback(() => {
+    console.log('[WebRTC Debug] Creating RTCPeerConnection with servers:', ICE_SERVERS);
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
+        const candStr = event.candidate.candidate;
+        let candType = 'unknown';
+        if (candStr.includes('typ host')) candType = 'host';
+        else if (candStr.includes('typ srflx')) candType = 'srflx (STUN)';
+        else if (candStr.includes('typ relay')) candType = 'relay (TURN)';
+
+        console.log(`[WebRTC Debug] Generated Local ICE Candidate: type=${candType}, candidate=${candStr}`);
+
         socket.emit('ice-candidate', {
           targetId,
           candidate: event.candidate,
         });
+      } else {
+        console.log('[WebRTC Debug] Local ICE Candidate gathering completed (null candidate received).');
       }
+    };
+
+    pc.onicegatheringstatechange = () => {
+      console.log(`[WebRTC Debug] ICE Gathering State Changed: ${pc.iceGatheringState}`);
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log(`[WebRTC Debug] ICE Connection State Changed: ${pc.iceConnectionState}`);
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        setCallStatus('connected');
+      } else if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+        console.warn(`[WebRTC Debug] ICE Connection failed or disconnected: state=${pc.iceConnectionState}. Diagnose stopping point...`);
+        diagnoseFailure(pc);
+        endCall();
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log(`[WebRTC Debug] Peer Connection State Changed: ${pc.connectionState}`);
+      if (pc.connectionState === 'failed') {
+        console.error('[WebRTC Debug] Peer Connection failed.');
+        diagnoseFailure(pc);
+      }
+    };
+
+    pc.onsignalingstatechange = () => {
+      console.log(`[WebRTC Debug] Signaling State Changed: ${pc.signalingState}`);
+    };
+
+    pc.onicecandidateerror = (event) => {
+      console.error(`[WebRTC Debug] ICE Candidate Error: url=${event.url}, errorCode=${event.errorCode}, errorText=${event.errorText}`);
     };
 
     pc.ontrack = (event) => {
       const [stream] = event.streams;
+      console.log('[WebRTC Debug] Remote media track received! Stream tracks:', stream.getTracks().map(t => `${t.kind}:${t.label}`));
       setRemoteStream(stream);
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = stream;
-      }
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-        setCallStatus('connected');
-      } else if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
-        endCall();
       }
     };
 
@@ -60,13 +95,40 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
     return pc;
   }, [targetId]);
 
+  const diagnoseFailure = (pc) => {
+    if (!pc) {
+      console.log('[WebRTC Diagnostic] Call failed: No RTCPeerConnection was created.');
+      return;
+    }
+    
+    console.log('[WebRTC Diagnostic] Investigating call failure point...');
+    console.log(`- Local media stream: ${localStreamRef.current ? '✅ Obtained' : '❌ NOT obtained'}`);
+    console.log(`- Signaling State: ${pc.signalingState} (Expected: stable)`);
+    console.log(`- ICE Gathering State: ${pc.iceGatheringState}`);
+    console.log(`- ICE Connection State: ${pc.iceConnectionState}`);
+    
+    if (!localStreamRef.current) {
+      console.error('[WebRTC Diagnostic FAILURE STEP] Stopped at: media attachment (Local camera/microphone could not be accessed).');
+    } else if (pc.signalingState !== 'stable') {
+      console.error('[WebRTC Diagnostic FAILURE STEP] Stopped at: SDP exchange (Offer/Answer handshake did not complete successfully).');
+    } else if (pc.iceGatheringState === 'new') {
+      console.error('[WebRTC Diagnostic FAILURE STEP] Stopped at: ICE gathering (No ICE candidates were generated; check local network permissions).');
+    } else if (pc.iceConnectionState !== 'connected' && pc.iceConnectionState !== 'completed') {
+      console.error('[WebRTC Diagnostic FAILURE STEP] Stopped at: ICE connectivity (Failed to establish peer-to-peer network route. A TURN server is likely required).');
+    } else {
+      console.error('[WebRTC Diagnostic FAILURE STEP] Stopped at: media attachment (Network connected, but remote audio/video tracks were not received).');
+    }
+  };
+
   const startMedia = async (type = 'video') => {
+    console.log(`[WebRTC Debug] Requesting local media stream: type=${type}`);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: type === 'voice' ? false : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
       });
       
+      console.log('[WebRTC Debug] Local media stream successfully obtained! Tracks:', stream.getTracks().map(t => `${t.kind}:${t.label}`));
       setIsVideoOn(type !== 'voice');
 
       setLocalStream(stream);
@@ -74,79 +136,120 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
       return stream;
     } catch (e) {
-      console.error('Media error', e);
+      console.error('[WebRTC Debug] Local media acquisition failed:', e);
       return null;
     }
   };
 
   // Caller initiates call
   const initCall = useCallback(async () => {
+    console.log('[WebRTC Debug] Initiating Call...');
     setCallStatus('connecting');
     const stream = await startMedia(initialCallType);
-    if (!stream) return setCallStatus('ended');
+    if (!stream) {
+      console.error('[WebRTC Debug] Failed to start call: media stream not available.');
+      return setCallStatus('ended');
+    }
 
     const pc = createPeerConnection();
+    console.log('[WebRTC Debug] Adding local tracks to peer connection...');
     stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
-    // Signal intent to call
+    console.log('[WebRTC Debug] Sending call-request to signaling server for targetId:', targetId);
     socket.emit('call-request', { targetId, callerData: { username: user.username, type: initialCallType } });
   }, [targetId, user, createPeerConnection, initialCallType]);
 
   // Caller creates offer AFTER target accepts
   const proceedWithOffer = useCallback(async () => {
-    if (!peerConnection.current) return;
-    const offer = await peerConnection.current.createOffer();
-    await peerConnection.current.setLocalDescription(offer);
-    socket.emit('offer', { targetId, offer: peerConnection.current.localDescription });
+    if (!peerConnection.current) {
+      console.warn('[WebRTC Debug] proceedWithOffer aborted: No peer connection active.');
+      return;
+    }
+    try {
+      console.log('[WebRTC Debug] Creating offer...');
+      const offer = await peerConnection.current.createOffer();
+      console.log('[WebRTC Debug] Setting local description (Offer)...');
+      await peerConnection.current.setLocalDescription(offer);
+      console.log('[WebRTC Debug] Sending offer to signaling server for target:', targetId);
+      socket.emit('offer', { targetId, offer: peerConnection.current.localDescription });
+    } catch (error) {
+      console.error('[WebRTC Debug] Error creating/sending offer:', error);
+    }
   }, [targetId]);
 
   // Target answers call
   const acceptCall = useCallback(async () => {
+    console.log('[WebRTC Debug] Accepting incoming call...');
     setCallStatus('connecting');
     const stream = await startMedia(initialCallType);
-    if (!stream) return setCallStatus('ended');
+    if (!stream) {
+      console.error('[WebRTC Debug] Failed to accept call: media stream not available.');
+      return setCallStatus('ended');
+    }
 
     const pc = createPeerConnection();
+    console.log('[WebRTC Debug] Adding local tracks to peer connection...');
     stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
+    console.log('[WebRTC Debug] Sending call-accept to signaling server for caller:', targetId);
     socket.emit('call-accept', { targetId });
   }, [targetId, createPeerConnection, initialCallType]);
 
   const declineCall = useCallback((reason = 'declined') => {
+    console.log('[WebRTC Debug] Declining call. Reason:', reason);
     socket.emit('call-decline', { targetId });
     setCallEndReason(reason);
     setCallStatus('ended');
   }, [targetId]);
 
   const handleOffer = useCallback(async (offer) => {
+    if (!peerConnection.current) {
+      console.warn('[WebRTC Debug] handleOffer aborted: No peer connection active.');
+      return;
+    }
     try {
-      if (!peerConnection.current) return;
+      console.log('[WebRTC Debug] Received Remote Offer. Setting remote description...');
       await peerConnection.current.setRemoteDescription(new RTCSessionDescription(offer));
+      console.log('[WebRTC Debug] Creating answer...');
       const answer = await peerConnection.current.createAnswer();
+      console.log('[WebRTC Debug] Setting local description (Answer)...');
       await peerConnection.current.setLocalDescription(answer);
+      console.log('[WebRTC Debug] Sending answer to signaling server for target:', targetId);
       socket.emit('answer', { targetId, answer: peerConnection.current.localDescription });
     } catch (error) {
-      console.error('Error handling offer:', error);
+      console.error('[WebRTC Debug] Error handling offer/creating answer:', error);
     }
   }, [targetId]);
 
   const handleAnswer = useCallback(async (answer) => {
+    if (!peerConnection.current) {
+      console.warn('[WebRTC Debug] handleAnswer aborted: No peer connection active.');
+      return;
+    }
     try {
-      if (peerConnection.current) {
-        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
-      }
+      console.log('[WebRTC Debug] Received Remote Answer. Setting remote description...');
+      await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
     } catch (error) {
-      console.error('Error handling answer:', error);
+      console.error('[WebRTC Debug] Error setting remote answer:', error);
     }
   }, []);
 
   const handleICECandidate = useCallback(async (candidate) => {
+    if (!peerConnection.current) {
+      console.warn('[WebRTC Debug] handleICECandidate aborted: No peer connection active.');
+      return;
+    }
     try {
-      if (peerConnection.current) {
-        await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
-      }
+      const candStr = candidate.candidate;
+      let candType = 'unknown';
+      if (candStr.includes('typ host')) candType = 'host';
+      else if (candStr.includes('typ srflx')) candType = 'srflx (STUN)';
+      else if (candStr.includes('typ relay')) candType = 'relay (TURN)';
+
+      console.log(`[WebRTC Debug] Applying Remote ICE Candidate: type=${candType}, candidate=${candStr}`);
+      await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
     } catch (error) {
-      console.error('Error handling ICE candidate:', error);
+      console.error('[WebRTC Debug] Error applying remote ICE candidate:', error);
     }
   }, []);
 
