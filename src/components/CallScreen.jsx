@@ -33,7 +33,7 @@ export default function CallScreen() {
   const {
     callStatus, isMuted, isVideoOn, isSpeakerOff, callEndReason,
     initCall, acceptCall, declineCall, endCall, toggleMute, toggleVideo, toggleSpeaker,
-    localVideoRef, remoteVideoRef, remoteStream,
+    localVideoRef, remoteVideoRef, localStream, remoteStream,
   } = useWebRTC(targetId, isIncoming, callType);
 
   // Auto-init for outgoing calls
@@ -120,6 +120,21 @@ export default function CallScreen() {
 
   const showRemoteVideo = callStatus === 'connected' && remoteStream;
   const showLocalVideo = callStatus !== 'idle' && callStatus !== 'ringing' && callStatus !== 'ended';
+
+  // Bind streams to video elements dynamically when elements are rendered
+  useEffect(() => {
+    if (showLocalVideo && localVideoRef.current && localStream) {
+      console.log('[Media Debug] Binding localStream to local video element');
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [showLocalVideo, localStream]);
+
+  useEffect(() => {
+    if (showRemoteVideo && remoteVideoRef.current && remoteStream) {
+      console.log('[Media Debug] Binding remoteStream to remote video element');
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [showRemoteVideo, remoteStream]);
 
   return (
     <div className="call-screen">

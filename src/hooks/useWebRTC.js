@@ -59,6 +59,11 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
       console.log(`[WebRTC Debug] ICE Connection State Changed: ${pc.iceConnectionState}`);
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
         setCallStatus('connected');
+        // Log WebRTC parameters upon successful connection
+        console.log('[WebRTC Debug] Connection established. Logging Peer parameters:');
+        console.log('- Senders:', pc.getSenders().map(s => `track:${s.track ? s.track.kind : 'null'} active:${s.track ? s.track.enabled : 'false'}`));
+        console.log('- Receivers:', pc.getReceivers().map(r => `track:${r.track ? r.track.kind : 'null'} active:${r.track ? r.track.enabled : 'false'}`));
+        console.log('- Transceivers:', pc.getTransceivers().map(t => `mid:${t.mid} direction:${t.direction} currentDirection:${t.currentDirection}`));
       } else if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
         console.warn(`[WebRTC Debug] ICE Connection failed or disconnected: state=${pc.iceConnectionState}. Diagnose stopping point...`);
         diagnoseFailure(pc);
@@ -84,10 +89,12 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
 
     pc.ontrack = (event) => {
       const [stream] = event.streams;
-      console.log('[WebRTC Debug] Remote media track received! Stream tracks:', stream.getTracks().map(t => `${t.kind}:${t.label}`));
+      console.log('[WebRTC Debug] ontrack fired! Remote track details:', event.track.kind, event.track.label);
+      console.log('[WebRTC Debug] Remote Stream tracks:', stream.getTracks().map(t => `${t.kind}:${t.label} (enabled:${t.enabled})`));
       setRemoteStream(stream);
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = stream;
+        remoteVideoRef.current.play().catch(e => console.warn('[WebRTC Debug] Auto-play error:', e));
       }
     };
 
@@ -128,15 +135,21 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
         video: type === 'voice' ? false : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
       });
       
-      console.log('[WebRTC Debug] Local media stream successfully obtained! Tracks:', stream.getTracks().map(t => `${t.kind}:${t.label}`));
+      console.log('[WebRTC Debug] getUserMedia() successfully returned stream! Tracks:');
+      stream.getTracks().forEach(track => {
+        console.log(`  - Local Track: kind=${track.kind}, label="${track.label}", enabled=${track.enabled}, readyState=${track.readyState}`);
+      });
       setIsVideoOn(type !== 'voice');
 
       setLocalStream(stream);
       localStreamRef.current = stream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+        localVideoRef.current.play().catch(e => console.warn('[WebRTC Debug] Auto-play error:', e));
+      }
       return stream;
     } catch (e) {
-      console.error('[WebRTC Debug] Local media acquisition failed:', e);
+      console.error('[WebRTC Debug] Local media acquisition failed (getUserMedia error):', e);
       return null;
     }
   };
@@ -152,8 +165,11 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
     }
 
     const pc = createPeerConnection();
-    console.log('[WebRTC Debug] Adding local tracks to peer connection...');
-    stream.getTracks().forEach(track => pc.addTrack(track, stream));
+    console.log('[WebRTC Debug] Passing local tracks to peerConnection.addTrack():');
+    stream.getTracks().forEach(track => {
+      const sender = pc.addTrack(track, stream);
+      console.log(`  - Added local track: kind=${track.kind}, id=${track.id} via sender.id=${sender.id}`);
+    });
 
     console.log('[WebRTC Debug] Sending call-request to signaling server for targetId:', targetId);
     socket.emit('call-request', { targetId, callerData: { username: user.username, type: initialCallType } });
@@ -188,8 +204,11 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
     }
 
     const pc = createPeerConnection();
-    console.log('[WebRTC Debug] Adding local tracks to peer connection...');
-    stream.getTracks().forEach(track => pc.addTrack(track, stream));
+    console.log('[WebRTC Debug] Passing local tracks to peerConnection.addTrack():');
+    stream.getTracks().forEach(track => {
+      const sender = pc.addTrack(track, stream);
+      console.log(`  - Added local track: kind=${track.kind}, id=${track.id} via sender.id=${sender.id}`);
+    });
 
     console.log('[WebRTC Debug] Sending call-accept to signaling server for caller:', targetId);
     socket.emit('call-accept', { targetId });
@@ -301,26 +320,40 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
 
     // Listeners
     socket.on('call-accepted', () => {
+      console.log('[WebRTC Debug] Received call-accepted event on client.');
       proceedWithOffer();
     });
 
     socket.on('call-declined', () => {
+      console.log('[WebRTC Debug] Received call-declined event on client.');
       setCallEndReason('declined');
       setCallStatus('ended');
       alert('Call was declined or user is busy.');
     });
 
     socket.on('call-failed', (data) => {
+      console.warn('[WebRTC Debug] Received call-failed event on client:', data.reason);
       setCallEndReason('missed');
       setCallStatus('ended');
       alert(data.reason || 'Call failed');
     });
 
-    socket.on('offer', (data) => handleOffer(data.offer));
-    socket.on('answer', (data) => handleAnswer(data.answer));
-    socket.on('ice-candidate', (data) => handleICECandidate(data.candidate));
+    socket.on('offer', (data) => {
+      console.log('[WebRTC Debug] Received offer event on client.');
+      handleOffer(data.offer);
+    });
+    
+    socket.on('answer', (data) => {
+      console.log('[WebRTC Debug] Received answer event on client.');
+      handleAnswer(data.answer);
+    });
+    
+    socket.on('ice-candidate', (data) => {
+      handleICECandidate(data.candidate);
+    });
     
     socket.on('call-ended', () => {
+      console.log('[WebRTC Debug] Received call-ended event on client.');
       if (peerConnection.current) peerConnection.current.close();
       if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop());
       setCallEndReason(prev => prev === 'completed' ? 'missed' : prev); // If they didn't answer, it's missed
