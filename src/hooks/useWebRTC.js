@@ -73,7 +73,10 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
 
     pc.onconnectionstatechange = () => {
       console.log(`[WebRTC Debug] Peer Connection State Changed: ${pc.connectionState}`);
-      if (pc.connectionState === 'failed') {
+      if (pc.connectionState === 'connected') {
+        console.log('[WebRTC Debug] ConnectionState is connected! Updating callStatus to connected.');
+        setCallStatus('connected');
+      } else if (pc.connectionState === 'failed') {
         console.error('[WebRTC Debug] Peer Connection failed.');
         diagnoseFailure(pc);
       }
@@ -92,6 +95,7 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
       console.log('[WebRTC Debug] ontrack fired! Remote track details:', event.track.kind, event.track.label);
       console.log('[WebRTC Debug] Remote Stream tracks:', stream.getTracks().map(t => `${t.kind}:${t.label} (enabled:${t.enabled})`));
       setRemoteStream(stream);
+      setCallStatus('connected');
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = stream;
         remoteVideoRef.current.play().catch(e => console.warn('[WebRTC Debug] Auto-play error:', e));

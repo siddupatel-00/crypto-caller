@@ -4,6 +4,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Mic, MicOff, Video, VideoOff, Volume2, VolumeX, PhoneOff, PhoneCall, Lock, Phone } from 'lucide-react';
 import useWebRTC from '../hooks/useWebRTC';
 import useStore from '../store';
+import { ringtoneSynth } from '../utils/ringtone';
 import './CallScreen.css';
 
 function formatDuration(seconds) {
@@ -70,13 +71,15 @@ export default function CallScreen() {
 
   const ringtoneVolume = useStore(state => state.ringtoneVolume);
   const ringTimeout = useStore(state => state.ringTimeout);
+  const selectedRingtone = useStore(state => state.selectedRingtone);
 
   // Auto ring timeout & Ringtone playback
   useEffect(() => {
     if (callStatus === 'ringing' || callStatus === 'connecting') {
-      if (ringtoneEnabled && audioRef.current) {
-        audioRef.current.volume = ringtoneVolume;
-        audioRef.current.play().catch(e => console.log('Autoplay prevented', e));
+      if (ringtoneEnabled) {
+        // Only play incoming ringtone for receiver ('ringing'). Play outgoing ringback for caller ('connecting').
+        const toneToPlay = isIncoming ? selectedRingtone : 'ringback';
+        ringtoneSynth.play(toneToPlay, ringtoneVolume);
       }
       const timer = setTimeout(() => {
         if (isIncoming) {
@@ -89,18 +92,12 @@ export default function CallScreen() {
       }, ringTimeout * 1000);
       return () => {
         clearTimeout(timer);
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-        }
+        ringtoneSynth.stop();
       };
     } else {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      }
+      ringtoneSynth.stop();
     }
-  }, [callStatus, ringTimeout, isIncoming, declineCall, endCall, navigate, ringtoneEnabled]);
+  }, [callStatus, ringTimeout, isIncoming, declineCall, endCall, navigate, ringtoneEnabled, selectedRingtone, ringtoneVolume]);
 
   console.log(`[Signaling Log] CallScreen mounted. targetId=${targetId}, isIncoming=${isIncoming}, callType=${callType}, callerName=${callerName}`);
 
@@ -118,8 +115,10 @@ export default function CallScreen() {
     navigate('/dashboard');
   };
 
-  const showRemoteVideo = callStatus === 'connected' && remoteStream;
-  const showLocalVideo = callStatus !== 'idle' && callStatus !== 'ringing' && callStatus !== 'ended';
+  const showRemoteVideo = callType === 'video' && remoteStream;
+  const showRemoteAudioOnly = callType === 'voice' && remoteStream;
+  const showLocalVideo = callType === 'video' && callStatus !== 'idle' && callStatus !== 'ringing' && callStatus !== 'ended';
+  const showLocalAudioOnly = callType === 'voice' && callStatus !== 'idle' && callStatus !== 'ringing' && callStatus !== 'ended' && localStream;
 
   // Bind streams to video elements dynamically when elements are rendered
   useEffect(() => {
@@ -130,11 +129,25 @@ export default function CallScreen() {
   }, [showLocalVideo, localStream]);
 
   useEffect(() => {
+    if (showLocalAudioOnly && localVideoRef.current && localStream) {
+      console.log('[Media Debug] Binding localStream to local audio element');
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [showLocalAudioOnly, localStream]);
+
+  useEffect(() => {
     if (showRemoteVideo && remoteVideoRef.current && remoteStream) {
       console.log('[Media Debug] Binding remoteStream to remote video element');
       remoteVideoRef.current.srcObject = remoteStream;
     }
   }, [showRemoteVideo, remoteStream]);
+
+  useEffect(() => {
+    if (showRemoteAudioOnly && remoteVideoRef.current && remoteStream) {
+      console.log('[Media Debug] Binding remoteStream to remote audio element');
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [showRemoteAudioOnly, remoteStream]);
 
   return (
     <div className="call-screen">
@@ -163,7 +176,9 @@ export default function CallScreen() {
         )}
       </div>
 
-      <audio ref={audioRef} src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg" loop />
+      {showRemoteAudioOnly && (
+        <audio ref={remoteVideoRef} autoPlay />
+      )}
 
       {/* Local Video PiP */}
       {showLocalVideo && (
@@ -176,6 +191,10 @@ export default function CallScreen() {
             </div>
           )}
         </div>
+      )}
+
+      {showLocalAudioOnly && (
+        <audio ref={localVideoRef} muted />
       )}
 
       {/* Top Bar */}

@@ -6,6 +6,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 import useStore from '../store';
 import socket from '../utils/socket';
 import { auth, signOut } from '../firebase';
+import { ringtoneSynth } from '../utils/ringtone';
 import './DashboardScreen.css';
 
 export default function DashboardScreen() {
@@ -15,6 +16,10 @@ export default function DashboardScreen() {
   const setRingTimeout = useStore((state) => state.setRingTimeout);
   const ringtoneEnabled = useStore((state) => state.ringtoneEnabled);
   const setRingtoneEnabled = useStore((state) => state.setRingtoneEnabled);
+  const selectedRingtone = useStore((state) => state.selectedRingtone);
+  const setSelectedRingtone = useStore((state) => state.setSelectedRingtone);
+  const ringtoneVolume = useStore((state) => state.ringtoneVolume);
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('friends');
@@ -102,6 +107,7 @@ export default function DashboardScreen() {
       socket.off('friends-updated');
       socket.off('user-status-changed');
       socket.off('incoming-call');
+      ringtoneSynth.stop();
     };
   }, [user]);
 
@@ -155,6 +161,16 @@ export default function DashboardScreen() {
       navigate('/');
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const togglePreview = (tone) => {
+    if (isPreviewPlaying) {
+      ringtoneSynth.stop();
+      setIsPreviewPlaying(false);
+    } else {
+      ringtoneSynth.play(tone, ringtoneVolume);
+      setIsPreviewPlaying(true);
     }
   };
 
@@ -466,27 +482,88 @@ export default function DashboardScreen() {
 
               <div style={{ marginTop: '30px' }}>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#a0a0a0' }}>Ringtone</label>
-                <p style={{ fontSize: '13px', color: '#666', marginBottom: '16px' }}>Play a sound when receiving an incoming call or waiting for someone to answer.</p>
+                <p style={{ fontSize: '13px', color: '#666', marginBottom: '16px' }}>Select and customize the sound for incoming calls.</p>
                 <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '10px', marginBottom: '16px' }}>
                   <input 
                     type="checkbox" 
                     checked={ringtoneEnabled} 
-                    onChange={(e) => setRingtoneEnabled(e.target.checked)}
+                    onChange={(e) => {
+                      setRingtoneEnabled(e.target.checked);
+                      if (!e.target.checked) {
+                        ringtoneSynth.stop();
+                        setIsPreviewPlaying(false);
+                      }
+                    }}
                     style={{ width: '18px', height: '18px', accentColor: '#00C853' }}
                   />
                   <span>Enable Ringtone</span>
                 </label>
                 
                 {ringtoneEnabled && (
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '8px', color: '#a0a0a0', fontSize: '14px' }}>Ringtone Volume</label>
-                    <input 
-                      type="range" 
-                      min="0" max="1" step="0.1" 
-                      value={useStore((state) => state.ringtoneVolume)}
-                      onChange={(e) => useStore.getState().setRingtoneVolume(parseFloat(e.target.value))}
-                      style={{ width: '100%', maxWidth: '300px', accentColor: '#00C853' }}
-                    />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '8px', color: '#a0a0a0', fontSize: '14px' }}>Ringtone Sound</label>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <select 
+                          value={selectedRingtone} 
+                          onChange={(e) => {
+                            setSelectedRingtone(e.target.value);
+                            // If preview is playing, restart it with the new preset
+                            if (isPreviewPlaying) {
+                              ringtoneSynth.play(e.target.value, ringtoneVolume);
+                            }
+                          }}
+                          style={{
+                            padding: '12px',
+                            borderRadius: '8px',
+                            background: 'rgba(0,0,0,0.3)',
+                            color: '#fff',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            flex: 1,
+                            maxWidth: '220px'
+                          }}
+                        >
+                          <option value="marimba">Classic Marimba</option>
+                          <option value="whatsapp">WhatsApp Bell</option>
+                          <option value="signal">Signal Chime</option>
+                          <option value="telegram">Telegram Trill</option>
+                          <option value="bells">Echo Bells</option>
+                          <option value="pulse">Digital Pulse</option>
+                          <option value="zen">Zen Bowl</option>
+                          <option value="cyber">Cyber Tech</option>
+                        </select>
+                        <button 
+                          onClick={() => togglePreview(selectedRingtone)}
+                          style={{
+                            padding: '10px 16px',
+                            borderRadius: '8px',
+                            background: isPreviewPlaying ? 'var(--danger)' : 'var(--primary)',
+                            color: '#fff',
+                            fontWeight: '600',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '13px'
+                          }}
+                        >
+                          {isPreviewPlaying ? 'Stop' : 'Play Preview'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '8px', color: '#a0a0a0', fontSize: '14px' }}>Ringtone Volume</label>
+                      <input 
+                        type="range" 
+                        min="0" max="1" step="0.1" 
+                        value={ringtoneVolume}
+                        onChange={(e) => {
+                          const vol = parseFloat(e.target.value);
+                          useStore.getState().setRingtoneVolume(vol);
+                          ringtoneSynth.setVolume(vol);
+                        }}
+                        style={{ width: '100%', maxWidth: '300px', accentColor: '#00C853' }}
+                      />
+                    </div>
                   </div>
                 )}
               </div>
