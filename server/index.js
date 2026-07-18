@@ -367,43 +367,47 @@ io.on('connection', (socket) => {
         callerData // { username }
       });
     } else {
-      console.log(`[Signaling Server Log] Target user ${targetId} is offline. Attempting push notification...`);
-      // Try to send push notification
-      try {
-        const userRes = await db.execute({
-          sql: 'SELECT fcm_token FROM users WHERE id = ?',
-          args: [targetId]
-        });
-        const fcmToken = userRes.rows[0]?.fcm_token;
-        
-        if (fcmToken) {
-          const message = {
+      console.log(`[Signaling Server Log] Target user ${targetId} is offline.`);
+    }
+
+    // Always attempt push notification if they have a token, because they might be connected but backgrounded
+    try {
+      const userRes = await db.execute({
+        sql: 'SELECT fcm_token FROM users WHERE id = ?',
+        args: [targetId]
+      });
+      const fcmToken = userRes.rows[0]?.fcm_token;
+      
+      if (fcmToken) {
+        console.log(`[Signaling Server Log] Attempting push notification to ${targetId}...`);
+        const message = {
+          notification: {
+            title: 'Incoming Call',
+            body: `${callerData?.username || 'Someone'} is calling you!`
+          },
+          data: {
+            callerId: callerId,
+            action: 'incoming_call'
+          },
+          android: {
+            priority: 'high',
             notification: {
-              title: 'Incoming Call',
-              body: `${callerData?.username || 'Someone'} is calling you!`
-            },
-            data: {
-              callerId: callerId,
-              action: 'incoming_call'
-            },
-            android: {
-              priority: 'high',
-              notification: {
-                channelId: 'calls',
-                sound: 'default'
-              }
-            },
-            token: fcmToken
-          };
-          
-          await admin.messaging().send(message);
-          console.log(`[Signaling Server Log] Push notification sent successfully to ${targetId}`);
-        } else {
-          console.warn(`[Signaling Server Log] No FCM token found for user ${targetId}. Sending 'call-failed'.`);
-          socket.emit('call-failed', { reason: 'User offline and no push token' });
-        }
-      } catch (err) {
-        console.error(`[Signaling Server Log] Error sending push notification:`, err);
+              channelId: 'calls',
+              sound: 'default'
+            }
+          },
+          token: fcmToken
+        };
+        
+        await admin.messaging().send(message);
+        console.log(`[Signaling Server Log] Push notification sent successfully to ${targetId}`);
+      } else if (!targetSocket) {
+        console.warn(`[Signaling Server Log] No FCM token and no socket found for user ${targetId}. Sending 'call-failed'.`);
+        socket.emit('call-failed', { reason: 'User offline and no push token' });
+      }
+    } catch (err) {
+      console.error(`[Signaling Server Log] Error sending push notification:`, err);
+      if (!targetSocket) {
         socket.emit('call-failed', { reason: 'Failed to send push notification' });
       }
     }
