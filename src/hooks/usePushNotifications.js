@@ -45,6 +45,13 @@ export default function usePushNotifications() {
       console.log('FCM Push registration success, token: ' + token.value);
       // Store token globally so we can send it to the backend upon socket connect
       useStore.getState().setFcmToken(token.value);
+      
+      // If socket is already connected (Dashboard mounted before token arrived), send it immediately!
+      const { socket } = require('../utils/socket');
+      const currentUser = useStore.getState().user;
+      if (socket.connected && currentUser) {
+        socket.emit('update-fcm-token', token.value);
+      }
     });
 
     // On error

@@ -354,6 +354,21 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('update-fcm-token', async (fcmToken) => {
+    const userId = socketToUser.get(socket.id);
+    if (userId && fcmToken) {
+      try {
+        await db.execute({
+          sql: 'UPDATE users SET fcm_token = ? WHERE id = ?',
+          args: [fcmToken, userId]
+        });
+        console.log(`[Signaling Server Log] Updated FCM token for user ${userId} to ${fcmToken}`);
+      } catch (e) {
+        console.error('Failed to update FCM token dynamically:', e);
+      }
+    }
+  });
+
   // Call Initiation
   socket.on('call-request', async ({ targetId, callerData }) => {
     const callerId = socketToUser.get(socket.id);
