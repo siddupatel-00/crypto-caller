@@ -4,7 +4,8 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
 import db from './db.js';
-import admin from 'firebase-admin';
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getMessaging } from 'firebase-admin/messaging';
 import { readFileSync } from 'fs';
 
 // Initialize Firebase Admin
@@ -16,8 +17,8 @@ try {
     serviceAccount = JSON.parse(readFileSync('./firebase-service-account.json', 'utf8'));
   }
   
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
+  initializeApp({
+    credential: cert(serviceAccount)
   });
   console.log('Firebase Admin initialized successfully');
 } catch (e) {
@@ -443,7 +444,7 @@ io.on('connection', (socket) => {
           token: fcmToken
         };
         
-        await admin.messaging().send(message);
+        await getMessaging().send(message);
         console.log(`[Signaling Server Log] Push notification sent successfully to ${targetId}`);
       } else if (!targetSocket) {
         console.warn(`[Signaling Server Log] No FCM token and no socket found for user ${targetId}. Sending 'call-failed'.`);
