@@ -27,6 +27,7 @@ export default function DashboardScreen() {
   const [requests, setRequests] = useState([]);
   const [history, setHistory] = useState([]);
   const [addInput, setAddInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [copied, setCopied] = useState(false);
 
   // Welcome States
@@ -59,16 +60,20 @@ export default function DashboardScreen() {
 
   const sortedFriends = React.useMemo(() => {
     return [...friends].sort((a, b) => {
-      // 1. Online vs Offline
-      if (a.isOnline && !b.isOnline) return -1;
-      if (!a.isOnline && b.isOnline) return 1;
-      // 2. Buddy vs Non-Buddy
+      // 1. Buddies first
       if (a.is_buddy && !b.is_buddy) return -1;
       if (!a.is_buddy && b.is_buddy) return 1;
-      // 3. Alphabetical
-      return (a.alias || a.username).localeCompare(b.alias || b.username);
+      // 2. Online status next
+      if (a.isOnline === b.isOnline) {
+        return (a.alias || a.username).localeCompare(b.alias || b.username);
+      }
+      return a.isOnline ? -1 : 1;
+    }).filter(f => {
+      if (!searchQuery) return true;
+      const s = searchQuery.toLowerCase();
+      return (f.alias?.toLowerCase().includes(s) || f.username.toLowerCase().includes(s));
     });
-  }, [friends]);
+  }, [friends, searchQuery]);
 
   useEffect(() => {
     if (!user) {
@@ -315,16 +320,11 @@ export default function DashboardScreen() {
             Settings
           </button>
         </nav>
-
-        <button className="logout-btn" onClick={handleSignOut}>
-          <LogOut size={18} />
-          Sign Out
-        </button>
       </aside>
 
       {/* Main Content */}
       <main className="main-content">
-        <header className="main-header glass-card">
+        <header className="main-header glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <form className="add-friend-form" onSubmit={handleAddFriend}>
             <input 
               type="text" 
@@ -332,11 +332,39 @@ export default function DashboardScreen() {
               value={addInput}
               onChange={(e) => setAddInput(e.target.value)}
             />
-            <button type="submit" className="home-btn home-btn--primary">
+            <button 
+              type="submit" 
+              className="home-btn home-btn--primary"
+              style={{
+                background: addInput.trim() ? 'var(--primary)' : 'rgba(255, 255, 255, 0.1)',
+                color: addInput.trim() ? '#fff' : '#888',
+                transition: 'all 0.3s ease',
+              }}
+            >
               <UserPlus size={18} />
-              Add Friend
+              <span className="hide-on-mobile">Add Friend</span>
             </button>
           </form>
+          
+          {activeTab === 'friends' && (
+            <div className="search-bar" style={{ display: 'flex', position: 'relative' }}>
+              <input 
+                type="text" 
+                placeholder="Search friends..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: '#fff',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+          )}
         </header>
 
         <div className="content-area">
@@ -566,6 +594,30 @@ export default function DashboardScreen() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              <div style={{ marginTop: '40px', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                <button 
+                  onClick={handleSignOut}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '12px 24px',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    color: '#ef4444',
+                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                    width: '100%',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <LogOut size={18} />
+                  Sign Out
+                </button>
               </div>
             </div>
           )}

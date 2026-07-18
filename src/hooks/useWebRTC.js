@@ -29,6 +29,7 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(initialCallType !== 'voice');
   const [isSpeakerOff, setIsSpeakerOff] = useState(false);
+  const [facingMode, setFacingMode] = useState('user');
   const [callEndReason, setCallEndReason] = useState('completed');
 
   const peerConnection = useRef(null);
@@ -163,12 +164,13 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
     }
   };
 
-  const startMedia = async (type = 'video') => {
+  const startMedia = async (type = 'video', forceFacingMode = null) => {
     console.log(`[WebRTC Debug] Requesting local media stream: type=${type}`);
     try {
+      const mode = forceFacingMode || facingMode;
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
-        video: type === 'voice' ? false : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+        video: type === 'voice' ? false : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: mode },
       });
       
       console.log('[WebRTC Debug] getUserMedia() successfully returned stream! Tracks:');
@@ -335,6 +337,43 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
     }
   }, []);
 
+  const flipCamera = useCallback(async () => {
+    if (!localStreamRef.current || !peerConnection.current) return;
+    
+    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newFacingMode);
+    
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: newFacingMode },
+      });
+      
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      const oldVideoTrack = localStreamRef.current.getVideoTracks()[0];
+      
+      if (oldVideoTrack) {
+        localStreamRef.current.removeTrack(oldVideoTrack);
+        oldVideoTrack.stop();
+      }
+      
+      localStreamRef.current.addTrack(newVideoTrack);
+      
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = localStreamRef.current;
+      }
+
+      // Replace track on the peer connection
+      const videoSender = peerConnection.current.getSenders().find(s => s.track && s.track.kind === 'video');
+      if (videoSender) {
+        await videoSender.replaceTrack(newVideoTrack);
+      }
+    } catch (e) {
+      console.error('[WebRTC Debug] Failed to flip camera:', e);
+      // Revert state if failed
+      setFacingMode(facingMode);
+    }
+  }, [facingMode]);
+
   const endCall = useCallback((reason = 'missed') => {
     if (statsIntervalRef.current) {
       clearInterval(statsIntervalRef.current);
@@ -422,6 +461,6 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
   return {
     localStream, remoteStream, callStatus, isMuted, isVideoOn, isSpeakerOff, callEndReason,
     initCall, acceptCall, declineCall, endCall, toggleMute, toggleVideo, toggleSpeaker,
-    localVideoRef, remoteVideoRef
+    flipCamera, localVideoRef, remoteVideoRef
   };
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SERVER_URL } from '../utils/socket';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Mic, MicOff, Video, VideoOff, Volume2, VolumeX, PhoneOff, PhoneCall, Lock, Phone } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, Volume2, VolumeX, PhoneOff, PhoneCall, Lock, Phone, SwitchCamera } from 'lucide-react';
 import useWebRTC from '../hooks/useWebRTC';
 import useStore from '../store';
 import { ringtoneSynth } from '../utils/ringtone';
@@ -34,8 +34,28 @@ export default function CallScreen() {
   const {
     callStatus, isMuted, isVideoOn, isSpeakerOff, callEndReason,
     initCall, acceptCall, declineCall, endCall, toggleMute, toggleVideo, toggleSpeaker,
-    localVideoRef, remoteVideoRef, localStream, remoteStream,
+    flipCamera, localVideoRef, remoteVideoRef, localStream, remoteStream,
   } = useWebRTC(targetId, isIncoming, callType);
+
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const controlsTimeoutRef = useRef(null);
+
+  const resetControlsTimeout = () => {
+    setControlsVisible(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    controlsTimeoutRef.current = setTimeout(() => {
+      if (callStatus === 'connected') {
+        setControlsVisible(false);
+      }
+    }, 4000);
+  };
+
+  useEffect(() => {
+    resetControlsTimeout();
+    return () => {
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    };
+  }, [callStatus]);
 
   // Auto-init for outgoing calls
   useEffect(() => {
@@ -150,7 +170,12 @@ export default function CallScreen() {
   }, [showRemoteAudioOnly, remoteStream]);
 
   return (
-    <div className="call-screen">
+    <div 
+      className="call-screen" 
+      onMouseMove={resetControlsTimeout}
+      onTouchStart={resetControlsTimeout}
+      onClick={resetControlsTimeout}
+    >
       {/* Remote Video Area */}
       <div className="call-remote-video-container">
         {showRemoteVideo ? (
@@ -245,7 +270,7 @@ export default function CallScreen() {
 
       {/* Control Bar */}
       {(callStatus === 'connecting' || callStatus === 'connected') && (
-        <div className="call-controls">
+        <div className={`call-controls ${controlsVisible ? 'call-controls--visible' : 'call-controls--hidden'}`}>
           <div className="call-controls__bar glass animate-slideUp">
             <button className={`call-control-btn ${isMuted ? 'call-control-btn--active' : ''}`} onClick={toggleMute}>
               {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
@@ -253,6 +278,11 @@ export default function CallScreen() {
             <button className={`call-control-btn ${!isVideoOn ? 'call-control-btn--active' : ''}`} onClick={toggleVideo}>
               {isVideoOn ? <Video size={22} /> : <VideoOff size={22} />}
             </button>
+            {callType === 'video' && (
+              <button className="call-control-btn" onClick={flipCamera}>
+                <SwitchCamera size={22} />
+              </button>
+            )}
             <button className={`call-control-btn ${isSpeakerOff ? 'call-control-btn--active' : ''}`} onClick={toggleSpeaker}>
               {isSpeakerOff ? <VolumeX size={22} /> : <Volume2 size={22} />}
             </button>
