@@ -320,6 +320,8 @@ app.post('/api/history', async (req, res) => {
 const onlineUsers = new Map();
 // Map<socketId, userId>
 const socketToUser = new Map();
+// Map<targetUserId, { callerId, callerData, timestamp }>
+const activeCalls = new Map();
 
 io.on('connection', (socket) => {
   
@@ -349,6 +351,22 @@ io.on('connection', (socket) => {
           });
         } catch (e) {
           console.error('Failed to save FCM token:', e);
+        }
+      }
+
+      // Check if there is a pending active call for this user!
+      const pendingCall = activeCalls.get(userId);
+      if (pendingCall) {
+        // If the call was initiated less than 30 seconds ago
+        if (Date.now() - pendingCall.timestamp < 30000) {
+          console.log(`[Signaling Server Log] Syncing pending active call to recently reconnected socket ${socket.id} (user ${userId})`);
+          socket.emit('incoming-call', {
+            callerId: pendingCall.callerId,
+            callerData: pendingCall.callerData
+          });
+        } else {
+          // Expired
+          activeCalls.delete(userId);
         }
       }
     }
@@ -384,6 +402,17 @@ io.on('connection', (socket) => {
     } else {
       console.log(`[Signaling Server Log] Target user ${targetId} is offline.`);
     }
+
+    // Set active call state for syncing
+    activeCalls.set(targetId, { callerId, callerData, timestamp: Date.now() });
+    
+    // Auto-expire after 30 seconds
+    setTimeout(() => {
+      const call = activeCalls.get(targetId);
+      if (call && call.callerId === callerId) {
+        activeCalls.delete(targetId);
+      }
+    }, 30000);
 
     // Always attempt push notification if they have a token, because they might be connected but backgrounded
     try {
@@ -431,6 +460,7 @@ io.on('connection', (socket) => {
   socket.on('call-accept', ({ targetId }) => {
     const receiverId = socketToUser.get(socket.id);
     console.log(`[Signaling Server Log] Received 'call-accept' from socket ${socket.id} (user ${receiverId}) targeting user ${targetId}.`);
+    activeCalls.delete(receiverId); // clear active call state
     const targetSocket = onlineUsers.get(targetId);
     if (targetSocket) {
       console.log(`[Signaling Server Log] Forwarding 'call-accepted' to target socket ${targetSocket} (user ${targetId}).`);
@@ -445,6 +475,7 @@ io.on('connection', (socket) => {
   socket.on('call-decline', ({ targetId }) => {
     const declinerId = socketToUser.get(socket.id);
     console.log(`[Signaling Server Log] Received 'call-decline' from socket ${socket.id} (user ${declinerId}) targeting user ${targetId}.`);
+    activeCalls.delete(declinerId); // clear active call state
     const targetSocket = onlineUsers.get(targetId);
     if (targetSocket) {
       console.log(`[Signaling Server Log] Forwarding 'call-declined' to target socket ${targetSocket} (user ${targetId}).`);
@@ -489,6 +520,8 @@ io.on('connection', (socket) => {
   socket.on('end-call', ({ targetId }) => {
     const fromId = socketToUser.get(socket.id);
     console.log(`[Signaling Server Log] Received 'end-call' from socket ${socket.id} (user ${fromId}) targeting user ${targetId}.`);
+    activeCalls.delete(targetId); // clear active call state for receiver
+    activeCalls.delete(fromId); // clear active call state for sender (just in case)
     const targetSocket = onlineUsers.get(targetId);
     if (targetSocket) {
       io.to(targetSocket).emit('call-ended');

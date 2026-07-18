@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 import useStore from '../store';
 
 export default function usePushNotifications() {
   const user = useStore(state => state.user);
+  const navigate = useNavigate();
 
   useEffect(() => {
     // We only want to set up Push Notifications on actual native devices, not web browsers
@@ -70,9 +72,10 @@ export default function usePushNotifications() {
     PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
       console.log('Push action performed: ', notification);
       const data = notification.notification.data;
-      // If the data contains caller information, we could navigate to the call screen
-      // For now, tapping the notification opens the app, and WebSockets will immediately 
-      // sync the incoming call state if it's still ringing!
+      if (data && data.action === 'incoming_call' && data.callerId) {
+        // Navigate directly to the incoming call screen!
+        navigate(`/call/${data.callerId}?incoming=true`);
+      }
     });
   };
 }
