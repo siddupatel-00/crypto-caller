@@ -8,12 +8,16 @@ import useStore from './store';
 import { auth } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { SERVER_URL } from './utils/socket';
+import usePushNotifications from './hooks/usePushNotifications';
 import './App.css';
 
 function App() {
   const user = useStore((state) => state.user);
   const setUser = useStore((state) => state.setUser);
   const [authLoading, setAuthLoading] = useState(true);
+
+  // Initialize Push Notifications
+  usePushNotifications();
 
   // Restore session on refresh using Firebase's built-in persistence
   useEffect(() => {

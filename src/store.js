@@ -2,6 +2,8 @@ import { create } from 'zustand';
 
 const useStore = create((set) => ({
   user: null,
+  fcmToken: null,
+  setFcmToken: (token) => set({ fcmToken: token }),
   ringTimeout: parseInt(localStorage.getItem('ringTimeout') || '30', 10),
   ringtoneEnabled: localStorage.getItem('ringtoneEnabled') !== 'false', // default true
   ringtoneVolume: parseFloat(localStorage.getItem('ringtoneVolume') || '1.0'),

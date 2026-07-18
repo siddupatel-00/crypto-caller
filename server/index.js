@@ -4,6 +4,25 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
 import db from './db.js';
+import admin from 'firebase-admin';
+import { readFileSync } from 'fs';
+
+// Initialize Firebase Admin
+try {
+  let serviceAccount;
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  } else {
+    serviceAccount = JSON.parse(readFileSync('./firebase-service-account.json', 'utf8'));
+  }
+  
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+  console.log('Firebase Admin initialized successfully');
+} catch (e) {
+  console.error('Failed to initialize Firebase Admin. Push notifications will not work.', e);
+}
 
 const app = express();
 const server = createServer(app);
@@ -304,20 +323,43 @@ const socketToUser = new Map();
 
 io.on('connection', (socket) => {
   
-  socket.on('register', (userId) => {
+  socket.on('register', async (data) => {
+    let userId = null;
+    let fcmToken = null;
+
+    if (typeof data === 'string') {
+      userId = data;
+    } else if (data && data.userId) {
+      userId = data.userId;
+      fcmToken = data.fcmToken;
+    }
+
     if (userId) {
       onlineUsers.set(userId, socket.id);
       socketToUser.set(socket.id, userId);
       // Broadcast to friends that user is online
       socket.broadcast.emit('user-status-changed', { userId, isOnline: true });
+
+      // Save FCM token if provided
+      if (fcmToken) {
+        try {
+          await db.execute({
+            sql: 'UPDATE users SET fcm_token = ? WHERE id = ?',
+            args: [fcmToken, userId]
+          });
+        } catch (e) {
+          console.error('Failed to save FCM token:', e);
+        }
+      }
     }
   });
 
   // Call Initiation
-  socket.on('call-request', ({ targetId, callerData }) => {
+  socket.on('call-request', async ({ targetId, callerData }) => {
     const callerId = socketToUser.get(socket.id);
     console.log(`[Signaling Server Log] Received 'call-request' from socket ${socket.id} (user ${callerId}) targeting user ${targetId}.`);
     const targetSocket = onlineUsers.get(targetId);
+    
     if (targetSocket) {
       console.log(`[Signaling Server Log] Forwarding 'incoming-call' to target socket ${targetSocket} (user ${targetId}).`);
       io.to(targetSocket).emit('incoming-call', { 
@@ -325,8 +367,38 @@ io.on('connection', (socket) => {
         callerData // { username }
       });
     } else {
-      console.warn(`[Signaling Server Log] Target user ${targetId} is offline. Sending 'call-failed' to caller.`);
-      socket.emit('call-failed', { reason: 'User offline' });
+      console.log(`[Signaling Server Log] Target user ${targetId} is offline. Attempting push notification...`);
+      // Try to send push notification
+      try {
+        const userRes = await db.execute({
+          sql: 'SELECT fcm_token FROM users WHERE id = ?',
+          args: [targetId]
+        });
+        const fcmToken = userRes.rows[0]?.fcm_token;
+        
+        if (fcmToken) {
+          const message = {
+            notification: {
+              title: 'Incoming Call',
+              body: `${callerData?.username || 'Someone'} is calling you!`
+            },
+            data: {
+              callerId: callerId,
+              action: 'incoming_call'
+            },
+            token: fcmToken
+          };
+          
+          await admin.messaging().send(message);
+          console.log(`[Signaling Server Log] Push notification sent successfully to ${targetId}`);
+        } else {
+          console.warn(`[Signaling Server Log] No FCM token found for user ${targetId}. Sending 'call-failed'.`);
+          socket.emit('call-failed', { reason: 'User offline and no push token' });
+        }
+      } catch (err) {
+        console.error(`[Signaling Server Log] Error sending push notification:`, err);
+        socket.emit('call-failed', { reason: 'Failed to send push notification' });
+      }
     }
   });
 

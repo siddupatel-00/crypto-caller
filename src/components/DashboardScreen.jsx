@@ -92,7 +92,7 @@ export default function DashboardScreen() {
     localStorage.removeItem('welcome_type');
 
     socket.connect();
-    socket.emit('register', user.id);
+    socket.emit('register', { userId: user.id, fcmToken: useStore.getState().fcmToken });
 
     fetchFriends();
     fetchHistory();

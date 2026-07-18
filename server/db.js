@@ -18,6 +18,13 @@ async function initSchema() {
         created_at INTEGER DEFAULT (strftime('%s', 'now'))
       );
     `);
+
+    // Add fcm_token column if it doesn't exist
+    try {
+      await db.execute(`ALTER TABLE users ADD COLUMN fcm_token TEXT;`);
+    } catch (e) {
+      // Column might already exist, ignore error
+    }
     
     await db.execute(`
       CREATE TABLE IF NOT EXISTS friends (
