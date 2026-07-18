@@ -386,6 +386,9 @@ io.on('connection', (socket) => {
               callerId: callerId,
               action: 'incoming_call'
             },
+            android: {
+              priority: 'high'
+            },
             token: fcmToken
           };
           
