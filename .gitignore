@@ -27,3 +27,4 @@ dist-ssr
 *.db
 fix_urls.js
 check_users.js
+android/app/google-services.json
