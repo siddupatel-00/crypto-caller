@@ -298,6 +298,13 @@ export default function DashboardScreen() {
             {requests.length > 0 && <span className="badge">{requests.length}</span>}
           </button>
           <button 
+            className={`nav-item ${activeTab === 'add-friend' ? 'active' : ''}`}
+            onClick={() => setActiveTab('add-friend')}
+          >
+            <UserPlus size={20} />
+            Add Friend
+          </button>
+          <button 
             className={`nav-item ${activeTab === 'history' ? 'active' : ''}`}
             onClick={() => setActiveTab('history')}
           >
@@ -320,32 +327,8 @@ export default function DashboardScreen() {
           {activeTab === 'friends' && (
             <div className="friends-view animate-fadeIn">
               
-              {/* Friends Header: Add & Search */}
-              <div className="friends-header-actions glass-card" style={{ marginBottom: '24px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <form className="add-friend-form" onSubmit={handleAddFriend} style={{ display: 'flex', gap: '12px', width: '100%' }}>
-                  <input 
-                    type="text" 
-                    placeholder="Add by username or 24h code..." 
-                    value={addInput}
-                    onChange={(e) => setAddInput(e.target.value)}
-                    style={{ flex: 1, padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)', color: '#fff' }}
-                  />
-                  <button 
-                    type="submit" 
-                    className="home-btn home-btn--primary"
-                    style={{
-                      background: addInput.trim() ? 'var(--primary)' : 'rgba(255, 255, 255, 0.1)',
-                      color: addInput.trim() ? '#fff' : '#888',
-                      transition: 'all 0.3s ease',
-                      whiteSpace: 'nowrap',
-                      padding: '0 20px'
-                    }}
-                  >
-                    <UserPlus size={18} />
-                    <span className="hide-on-mobile">Add Friend</span>
-                  </button>
-                </form>
-                
+              {/* Friends Header: Search */}
+              <div className="friends-header-actions glass-card" style={{ marginBottom: '24px', padding: '16px' }}>
                 <div className="search-bar" style={{ display: 'flex', position: 'relative' }}>
                   <input 
                     type="text" 
@@ -437,6 +420,43 @@ export default function DashboardScreen() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'add-friend' && (
+            <div className="add-friend-view animate-fadeIn glass-card" style={{ padding: '32px', maxWidth: '600px', margin: '0 auto' }}>
+              <h2 style={{ marginBottom: '24px', fontSize: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '16px' }}>Add Friend</h2>
+              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <p style={{ color: '#a0a0a0', fontSize: '14px', marginBottom: '20px' }}>Enter your friend's exact username or their 24-hour invite code to send a request.</p>
+                
+                <form className="add-friend-form" onSubmit={(e) => {
+                  handleAddFriend(e);
+                  setActiveTab('friends'); // Optionally redirect back to friends after adding
+                }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <input 
+                    type="text" 
+                    placeholder="Username or 24h code..." 
+                    value={addInput}
+                    onChange={(e) => setAddInput(e.target.value)}
+                    style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)', color: '#fff', fontSize: '16px' }}
+                  />
+                  <button 
+                    type="submit" 
+                    className="home-btn home-btn--primary"
+                    style={{
+                      background: addInput.trim() ? 'var(--primary)' : 'rgba(255, 255, 255, 0.1)',
+                      color: addInput.trim() ? '#fff' : '#888',
+                      transition: 'all 0.3s ease',
+                      padding: '16px',
+                      width: '100%',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <UserPlus size={20} />
+                    <span>Send Friend Request</span>
+                  </button>
+                </form>
+              </div>
             </div>
           )}
 
