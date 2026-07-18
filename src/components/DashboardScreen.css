@@ -364,21 +364,38 @@
   justify-content: center;
   width: 40px;
   height: 40px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-secondary);
   border-radius: 50%;
   transition: all 0.2s;
 }
 
-.call-btn.voice-btn:not(:disabled):hover {
-  background: var(--primary-glow);
-  color: var(--primary-light);
+.call-btn.offline {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+}
+
+.call-btn.offline:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
   transform: translateY(-2px);
 }
 
-.call-btn.video-btn:not(:disabled):hover {
+.call-btn.voice-btn:not(.offline) {
+  background: var(--primary-glow);
+  color: var(--primary-light);
+}
+
+.call-btn.voice-btn:not(.offline):hover {
+  filter: brightness(1.2);
+  transform: translateY(-2px);
+}
+
+.call-btn.video-btn:not(.offline) {
   background: rgba(99, 102, 241, 0.2);
   color: #818cf8;
+}
+
+.call-btn.video-btn:not(.offline):hover {
+  filter: brightness(1.2);
   transform: translateY(-2px);
 }
 

@@ -387,7 +387,11 @@ io.on('connection', (socket) => {
               action: 'incoming_call'
             },
             android: {
-              priority: 'high'
+              priority: 'high',
+              notification: {
+                channelId: 'calls',
+                sound: 'default'
+              }
             },
             token: fcmToken
           };

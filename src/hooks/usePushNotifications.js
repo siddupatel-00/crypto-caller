@@ -21,6 +21,18 @@ export default function usePushNotifications() {
       if (permStatus.receive === 'granted') {
         // Register with Apple / Google to receive push via APNS/FCM
         await PushNotifications.register();
+        
+        // Create high-priority notification channel for Android 8.0+
+        if (Capacitor.getPlatform() === 'android') {
+          await PushNotifications.createChannel({
+            id: 'calls',
+            name: 'Incoming Calls',
+            description: 'Notifications for incoming calls',
+            importance: 5,
+            visibility: 1,
+            vibration: true,
+          });
+        }
       } else {
         console.log('Push notification permission denied');
       }
