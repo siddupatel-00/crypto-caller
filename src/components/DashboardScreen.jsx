@@ -400,16 +400,14 @@ export default function DashboardScreen() {
                       </div>
                       <div className="call-actions">
                         <button 
-                          className="call-btn voice-btn" 
-                          disabled={!friend.isOnline}
+                          className={`call-btn voice-btn ${!friend.isOnline ? 'offline' : ''}`} 
                           onClick={() => startCall(friend.id, 'voice')}
                           title="Voice Call"
                         >
                           <Phone size={18} />
                         </button>
                         <button 
-                          className="call-btn video-btn" 
-                          disabled={!friend.isOnline}
+                          className={`call-btn video-btn ${!friend.isOnline ? 'offline' : ''}`} 
                           onClick={() => startCall(friend.id, 'video')}
                           title="Video Call"
                         >
