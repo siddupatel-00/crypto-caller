@@ -217,9 +217,9 @@ export default function CallScreen() {
           <video ref={remoteVideoRef} className="call-remote-video" autoPlay playsInline />
         ) : (
           <div className="call-remote-placeholder">
-            <div className={`call-avatar call-avatar--large ${callStatus === 'connecting' || callStatus === 'ringing' ? 'call-avatar--pulsing' : ''}`}>
+            <div className={`call-avatar call-avatar--large ${callStatus === 'connecting' || callStatus === 'ringing' || callStatus === 'negotiating' ? 'call-avatar--pulsing' : ''}`}>
               <span className="call-avatar__initials">?</span>
-              {(callStatus === 'connecting' || callStatus === 'ringing') && (
+              {(callStatus === 'connecting' || callStatus === 'ringing' || callStatus === 'negotiating') && (
                 <>
                   <div className="call-avatar__ring call-avatar__ring--1" />
                   <div className="call-avatar__ring call-avatar__ring--2" />
@@ -229,8 +229,8 @@ export default function CallScreen() {
             </div>
             <p className="call-status-text">
               {callStatus === 'ringing' ? `Incoming ${callType === 'voice' ? 'Voice' : 'Video'} Call...` :
-               callStatus === 'connecting' ? 'Connecting...' :
-               callStatus === 'ended' ? 'Call Ended' : 'Ready'}
+               (callStatus === 'connecting' || callStatus === 'negotiating') ? 'Connecting...' :
+               callStatus === 'ended' ? 'Call Ended' : ''}
             </p>
           </div>
         )}
@@ -304,7 +304,7 @@ export default function CallScreen() {
       )}
 
       {/* Control Bar */}
-      {(callStatus === 'connecting' || callStatus === 'connected') && (
+      {(callStatus === 'connecting' || callStatus === 'negotiating' || callStatus === 'connected') && (
         <div className={`call-controls ${controlsVisible ? 'call-controls--visible' : 'call-controls--hidden'}`}>
           <div className="call-controls__bar glass animate-slideUp">
             <button className={`call-control-btn ${isMuted ? 'call-control-btn--active' : ''}`} onClick={toggleMute}>

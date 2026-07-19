@@ -27,8 +27,8 @@ public class CallActionReceiver extends BroadcastReceiver {
             if (callId != null) {
                 new Thread(() -> {
                     try {
-                        // Assuming running on emulator for now. A production app would read SERVER_URL from config.
-                        URL url = new URL("http://10.0.2.2:3001/api/calls/decline/" + callId);
+                        // Using the production URL instead of localhost
+                        URL url = new URL("https://crypto-caller.onrender.com/api/calls/decline/" + callId);
                         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                         conn.setRequestMethod("POST");
                         conn.getResponseCode();

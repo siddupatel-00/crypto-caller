@@ -95,9 +95,7 @@ export default function DashboardScreen() {
     localStorage.removeItem('welcome_type');
 
     socket._callverseUserId = user.id;
-    socket._callverseFcmToken = useStore.getState().fcmToken;
-    socket.connect();
-    socket.emit('register', { userId: user.id, fcmToken: useStore.getState().fcmToken });
+
 
     fetchFriends();
     fetchHistory();

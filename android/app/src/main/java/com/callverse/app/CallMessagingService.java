@@ -12,6 +12,10 @@ import androidx.core.app.NotificationCompat;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 import com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.style.ForegroundColorSpan;
+import android.graphics.Color;
 import java.util.Map;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
@@ -23,25 +27,22 @@ public class CallMessagingService extends FirebaseMessagingService {
 
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
-        Map<String, String> data = remoteMessage.getData();
-        
-        if ("incoming_call".equals(data.get("action"))) {
-            showCallNotification(data);
-        } else if ("cancel_call".equals(data.get("action"))) {
-            cancelCallNotification(data);
-        } else {
-            super.onMessageReceived(remoteMessage);
-            PushNotificationsPlugin.sendRemoteMessage(remoteMessage);
+        if (remoteMessage.getData().size() > 0) {
+            Map<String, String> data = remoteMessage.getData();
+            String action = data.get("action");
+            if ("cancel_call".equals(action)) {
+                cancelCallNotification(data);
+            } else {
+                showCallNotification(data);
+            }
         }
     }
 
     private void cancelCallNotification(Map<String, String> data) {
         String callId = data.get("callId");
         int notifId = callId != null ? callId.hashCode() : 0;
-        if (notifId != 0) {
-            NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            notificationManager.cancel(notifId);
-        }
+        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        nm.cancel(notifId);
         if (currentRingtone != null) {
             currentRingtone.stop();
             currentRingtone = null;
@@ -76,23 +77,33 @@ public class CallMessagingService extends FirebaseMessagingService {
         declineIntent.putExtra("notifId", notifId);
         PendingIntent declinePendingIntent = PendingIntent.getBroadcast(this, notifId + 2, declineIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        // Default click action (just open app)
-        Intent contentIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("callverse://call/" + callerId + "?incoming=true&callId=" + callId + "&type=" + callType));
-        contentIntent.setPackage(getPackageName());
-        PendingIntent contentPendingIntent = PendingIntent.getActivity(this, notifId, contentIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        // Full Screen Intent (Lock Screen UI)
+        Intent fullScreenIntent = new Intent(this, IncomingCallActivity.class);
+        fullScreenIntent.putExtra("callId", callId);
+        fullScreenIntent.putExtra("callerId", callerId);
+        fullScreenIntent.putExtra("callerName", callerName);
+        fullScreenIntent.putExtra("callType", callType);
+        fullScreenIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(this, notifId + 3, fullScreenIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        // Colored Actions for Heads-up Notification
+        SpannableString acceptText = new SpannableString("Answer");
+        acceptText.setSpan(new ForegroundColorSpan(Color.parseColor("#4CAF50")), 0, acceptText.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        
+        SpannableString declineText = new SpannableString("Decline");
+        declineText.setSpan(new ForegroundColorSpan(Color.parseColor("#F44336")), 0, declineText.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("Incoming " + (callType != null ? callType : "video") + " call")
             .setContentText(callerName != null ? callerName : "Someone is calling")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setAutoCancel(true)
             .setOngoing(true)
-            .setContentIntent(contentPendingIntent)
-            .setFullScreenIntent(contentPendingIntent, true)
-            .addAction(0, "Accept", acceptPendingIntent)
-            .addAction(0, "Decline", declinePendingIntent);
+            .setFullScreenIntent(fullScreenPendingIntent, true)
+            .addAction(0, acceptText, acceptPendingIntent)
+            .addAction(0, declineText, declinePendingIntent);
 
         notificationManager.notify(notifId, builder.build());
 
