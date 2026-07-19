@@ -1,4 +1,7 @@
-import { useEffect } from 'react';
+const fs = require('fs');
+let code = fs.readFileSync('src/hooks/usePushNotifications.js', 'utf8');
+
+const newCode = `import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
@@ -77,26 +80,24 @@ export default function usePushNotifications() {
         
         if (actionId === 'decline') {
           try {
-            await fetch(`${SERVER_URL}/api/calls/decline`, {
+            await fetch(\`\${SERVER_URL}/api/calls/decline\`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ callId: data.callId })
             });
             // We just let it silently background/stay there
-            PushNotifications.removeAllDeliveredNotifications();
           } catch(e) { console.error('Decline error', e); }
           return;
         }
 
         // For accept or normal tap, validate first
         try {
-          const res = await fetch(`${SERVER_URL}/api/calls/validate/${data.callId}`);
+          const res = await fetch(\`\${SERVER_URL}/api/calls/validate/\${data.callId}\`);
           const statusData = await res.json();
           if (statusData.status === 'RINGING' || statusData.status === 'ACTIVE') {
-            navigate(`/call/${data.callerId}?incoming=true&callId=${data.callId}&type=${data.callType || 'video'}&autoAccept=true`);
+            navigate(\`/call/\${data.callerId}?incoming=true&callId=\${data.callId}&type=\${data.callType || 'video'}\`);
           } else {
-            alert(`Call ended (${statusData.status})`);
-            PushNotifications.removeAllDeliveredNotifications();
+            alert(\`Call ended (\${statusData.status})\`);
             // Toaster or alert works better here than navigating
           }
         } catch(e) {
@@ -106,3 +107,6 @@ export default function usePushNotifications() {
     });
   };
 }
+`;
+
+fs.writeFileSync('src/hooks/usePushNotifications.js', newCode);

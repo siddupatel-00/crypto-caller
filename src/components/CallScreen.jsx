@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SERVER_URL } from '../utils/socket';
+import socket from '../utils/socket';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Mic, MicOff, Video, VideoOff, Volume2, VolumeX, PhoneOff, PhoneCall, Lock, Phone, SwitchCamera } from 'lucide-react';
 import useWebRTC from '../hooks/useWebRTC';
 import useStore from '../store';
 import { ringtoneSynth } from '../utils/ringtone';
+import { Capacitor } from '@capacitor/core';
 import './CallScreen.css';
 
 function formatDuration(seconds) {
@@ -25,6 +27,7 @@ export default function CallScreen() {
   const isIncoming = queryParams.get('incoming') === 'true';
   const callType = queryParams.get('type') || 'video';
   const callerName = queryParams.get('callerName') || 'Someone';
+  const callId = queryParams.get('callId') || null;
 
   const [duration, setDuration] = useState(0);
   const timerRef = useRef(null);
@@ -32,10 +35,10 @@ export default function CallScreen() {
   const ringtoneEnabled = useStore(state => state.ringtoneEnabled);
 
   const {
-    callStatus, isMuted, isVideoOn, isSpeakerOff, callEndReason,
+    callStatus, isMuted, isVideoOn, isLoudspeakerOn, callEndReason,
     initCall, acceptCall, declineCall, endCall, toggleMute, toggleVideo, toggleSpeaker,
     flipCamera, localVideoRef, remoteVideoRef, localStream, remoteStream,
-  } = useWebRTC(targetId, isIncoming, callType);
+  } = useWebRTC(targetId, isIncoming, callType, callId);
 
   const [controlsVisible, setControlsVisible] = useState(true);
   const controlsTimeoutRef = useRef(null);
@@ -57,12 +60,32 @@ export default function CallScreen() {
     };
   }, [callStatus]);
 
-  // Auto-init for outgoing calls
+  // Auto-init for outgoing calls, or auto-accept for push notification taps
+  const autoAccept = queryParams.get('autoAccept') === 'true';
   useEffect(() => {
     if (!isIncoming && callStatus === 'idle') {
       initCall();
+    } else if (isIncoming && autoAccept && callStatus === 'ringing') {
+      // Must wait for socket to be connected before accepting
+      const doAccept = () => {
+        console.log('[CallScreen] Auto-accepting call. Socket connected:', socket.connected);
+        acceptCall();
+      };
+
+      if (socket.connected) {
+        doAccept();
+      } else {
+        console.log('[CallScreen] Socket not connected yet. Waiting for connection before auto-accept...');
+        const onConnect = () => {
+          console.log('[CallScreen] Socket connected! Now auto-accepting.');
+          // Small delay to let register complete
+          setTimeout(doAccept, 300);
+        };
+        socket.once('connect', onConnect);
+        return () => socket.off('connect', onConnect);
+      }
     }
-  }, [isIncoming, callStatus, initCall]);
+  }, [isIncoming, callStatus, initCall, acceptCall, autoAccept]);
 
   const hasLoggedHistory = useRef(false);
 
@@ -93,14 +116,9 @@ export default function CallScreen() {
   const ringTimeout = useStore(state => state.ringTimeout);
   const selectedRingtone = useStore(state => state.selectedRingtone);
 
-  // Auto ring timeout & Ringtone playback
+  // Auto ring timeout
   useEffect(() => {
     if (callStatus === 'ringing' || callStatus === 'connecting') {
-      if (ringtoneEnabled) {
-        // Only play incoming ringtone for receiver ('ringing'). Play outgoing ringback for caller ('connecting').
-        const toneToPlay = isIncoming ? selectedRingtone : 'ringback';
-        ringtoneSynth.play(toneToPlay, ringtoneVolume);
-      }
       const timer = setTimeout(() => {
         if (isIncoming) {
           declineCall('not answered');
@@ -112,12 +130,29 @@ export default function CallScreen() {
       }, ringTimeout * 1000);
       return () => {
         clearTimeout(timer);
-        ringtoneSynth.stop();
       };
+    }
+  }, [callStatus, ringTimeout, isIncoming, declineCall, endCall, navigate]);
+
+  // Ringtone playback — single consolidated effect
+  useEffect(() => {
+    if (callStatus === 'ringing' && ringtoneEnabled) {
+      // Receiver side: play incoming ringtone (only on web; native Android plays via CallMessagingService)
+      if (!Capacitor.isNativePlatform()) {
+        ringtoneSynth.play(selectedRingtone, ringtoneVolume);
+      }
+    } else if (callStatus === 'connecting' && ringtoneEnabled) {
+      // Caller side: play ringback on ALL platforms (native doesn't play this automatically)
+      ringtoneSynth.play('ringback', ringtoneVolume);
     } else {
+      // Any other state (negotiating, connected, ended): stop all playback
       ringtoneSynth.stop();
     }
-  }, [callStatus, ringTimeout, isIncoming, declineCall, endCall, navigate, ringtoneEnabled, selectedRingtone, ringtoneVolume]);
+    return () => {
+      // Cleanup on unmount or state change
+      ringtoneSynth.stop();
+    };
+  }, [callStatus, selectedRingtone, ringtoneVolume, ringtoneEnabled]);
 
   console.log(`[Signaling Log] CallScreen mounted. targetId=${targetId}, isIncoming=${isIncoming}, callType=${callType}, callerName=${callerName}`);
 
@@ -283,8 +318,8 @@ export default function CallScreen() {
                 <SwitchCamera size={22} />
               </button>
             )}
-            <button className={`call-control-btn ${isSpeakerOff ? 'call-control-btn--active' : ''}`} onClick={toggleSpeaker}>
-              {isSpeakerOff ? <VolumeX size={22} /> : <Volume2 size={22} />}
+            <button className={`call-control-btn ${!isLoudspeakerOn ? 'call-control-btn--active' : ''}`} onClick={toggleSpeaker}>
+              {!isLoudspeakerOn ? <VolumeX size={24} /> : <Volume2 size={24} />}
             </button>
             <button className="call-control-btn call-control-btn--end" onClick={handleEndCall}>
               <PhoneOff size={24} />

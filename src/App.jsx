@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import AuthScreen from './components/AuthScreen';
 import DashboardScreen from './components/DashboardScreen';
 import CallScreen from './components/CallScreen';
@@ -8,6 +8,7 @@ import useStore from './store';
 import { auth } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { SERVER_URL } from './utils/socket';
+import socket from './utils/socket';
 import usePushNotifications from './hooks/usePushNotifications';
 import './App.css';
 
@@ -18,6 +19,33 @@ function App() {
 
   // Initialize Push Notifications
   usePushNotifications();
+
+  // Connect socket as soon as we have a user — this must happen here (App-level)
+  // because deep links can open /call/:targetId directly, skipping DashboardScreen.
+  useEffect(() => {
+    if (user) {
+      socket._callverseUserId = user.id;
+      socket._callverseFcmToken = useStore.getState().fcmToken;
+      if (!socket.connected) {
+        socket.connect();
+      }
+      // Always register (in case of reconnection or first connection)
+      socket.emit('register', { userId: user.id, fcmToken: useStore.getState().fcmToken });
+    }
+  }, [user]);
+
+  // Listen for Deep Links from Android Native Accept Action
+  const navigate = useNavigate();
+  useEffect(() => {
+    import('@capacitor/app').then(({ App: CapacitorApp }) => {
+      CapacitorApp.addListener('appUrlOpen', data => {
+        if (data.url.startsWith('callverse://call/')) {
+          const url = new URL(data.url);
+          navigate(url.pathname + url.search);
+        }
+      });
+    }).catch(console.error);
+  }, [navigate]);
 
   // Restore session on refresh using Firebase's built-in persistence
   useEffect(() => {

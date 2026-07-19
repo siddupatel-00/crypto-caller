@@ -7,7 +7,10 @@ import useStore from '../store';
 import socket from '../utils/socket';
 import { auth, signOut } from '../firebase';
 import { ringtoneSynth } from '../utils/ringtone';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import './DashboardScreen.css';
+
+const Ringtone = registerPlugin('Ringtone');
 
 export default function DashboardScreen() {
   const user = useStore((state) => state.user);
@@ -91,6 +94,8 @@ export default function DashboardScreen() {
     }
     localStorage.removeItem('welcome_type');
 
+    socket._callverseUserId = user.id;
+    socket._callverseFcmToken = useStore.getState().fcmToken;
     socket.connect();
     socket.emit('register', { userId: user.id, fcmToken: useStore.getState().fcmToken });
 
@@ -104,7 +109,7 @@ export default function DashboardScreen() {
     socket.on('incoming-call', (data) => {
       console.log(`[Signaling Log] [User B] Received 'incoming-call' event! data:`, data);
       console.log(`[Signaling Log] [User B] Navigating to Call screen: /call/${data.callerId}?incoming=true...`);
-      navigate(`/call/${data.callerId}?incoming=true&callerName=${data.callerData.username}&type=${data.callerData.type || 'video'}`);
+      navigate(`/call/${data.callerId}?incoming=true&callerName=${data.callerData?.username || 'Someone'}&type=${data.callerData?.type || 'video'}&callId=${data.callId}`);
     });
 
     return () => {
@@ -598,6 +603,30 @@ export default function DashboardScreen() {
                             </button>
                           </div>
                         </div>
+                        {Capacitor.isNativePlatform() && (
+                          <div style={{ marginTop: '12px' }}>
+                            <button 
+                              onClick={async () => {
+                                try {
+                                  await Ringtone.pickRingtone();
+                                  alert('Custom Android ringtone saved successfully!');
+                                } catch (e) {
+                                  console.error(e);
+                                }
+                              }}
+                              style={{
+                                width: '100%', padding: '12px', borderRadius: '10px',
+                                background: 'var(--primary)', color: '#fff',
+                                border: 'none', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s'
+                              }}
+                            >
+                              Pick Android System Ringtone
+                            </button>
+                            <p style={{ color: '#888', fontSize: '11px', marginTop: '8px' }}>
+                              This will override the sound preset above for incoming calls on Android.
+                            </p>
+                          </div>
+                        )}
 
                         <div>
                           <label style={{ display: 'block', marginBottom: '8px', color: '#a0a0a0', fontSize: '13px' }}>Volume</label>

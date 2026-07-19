@@ -315,48 +315,17 @@ app.post('/api/history', async (req, res) => {
   }
 });
 
-// ── Call Lifecycle API ──────────────────────────────────────────
-
-app.get('/api/calls/validate/:callId', (req, res) => {
-  const call = activeCalls.get(req.params.callId);
-  if (!call) return res.json({ status: 'EXPIRED' });
-  res.json({ status: call.status.toUpperCase(), call });
-});
-
-app.post('/api/calls/decline', (req, res) => {
-  const { callId } = req.body;
-  if (!callId) return res.status(400).json({ error: 'Missing callId' });
-  
-  const call = activeCalls.get(callId);
-  if (call) {
-    clearTimeout(call.timeoutId);
-    activeCalls.delete(callId);
-    
-    // Notify caller that call was declined instantly
-    const callerSocket = onlineUsers.get(call.callerId);
-    if (callerSocket) {
-      io.to(callerSocket).emit('call-declined', { callId });
-    }
-  }
-  res.json({ success: true });
-});
-
 // ── Socket.IO Presence & Signaling ──────────────────────────────
 
 // Map<userId, socketId>
 const onlineUsers = new Map();
 // Map<socketId, userId>
 const socketToUser = new Map();
-// Map<callId, { callId, callerId, targetId, callerData, status, timestamp, timeoutId }>
+// Map<targetUserId, { callerId, callerData, timestamp }>
 const activeCalls = new Map();
 
 io.on('connection', (socket) => {
   
-  const logSignal = (event, direction, callId, extra = '') => {
-    const userId = socketToUser.get(socket.id) || 'unknown';
-    console.log(`[${new Date().toISOString()}] [Server] [${direction}] ${event} | Socket: ${socket.id} | User: ${userId} | Call: ${callId} ${extra}`);
-  };
-
   socket.on('register', async (data) => {
     let userId = null;
     let fcmToken = null;
@@ -371,8 +340,10 @@ io.on('connection', (socket) => {
     if (userId) {
       onlineUsers.set(userId, socket.id);
       socketToUser.set(socket.id, userId);
+      // Broadcast to friends that user is online
       socket.broadcast.emit('user-status-changed', { userId, isOnline: true });
 
+      // Save FCM token if provided
       if (fcmToken) {
         try {
           await db.execute({
@@ -384,15 +355,19 @@ io.on('connection', (socket) => {
         }
       }
 
-      // Sync pending active calls for this user
-      for (const [callId, call] of activeCalls.entries()) {
-        if (call.targetId === userId && call.status === 'ringing' && (Date.now() - call.timestamp < 30000)) {
-          logSignal('incoming-call', 'EMIT', callId, `target: ${userId}`);
+      // Check if there is a pending active call for this user!
+      const pendingCall = activeCalls.get(userId);
+      if (pendingCall) {
+        // If the call was initiated less than 30 seconds ago
+        if (Date.now() - pendingCall.timestamp < 30000) {
+          console.log(`[Signaling Server Log] Syncing pending active call to recently reconnected socket ${socket.id} (user ${userId})`);
           socket.emit('incoming-call', {
-            callId: call.callId,
-            callerId: call.callerId,
-            callerData: call.callerData
+            callerId: pendingCall.callerId,
+            callerData: pendingCall.callerData
           });
+        } else {
+          // Expired
+          activeCalls.delete(userId);
         }
       }
     }
@@ -406,6 +381,7 @@ io.on('connection', (socket) => {
           sql: 'UPDATE users SET fcm_token = ? WHERE id = ?',
           args: [fcmToken, userId]
         });
+        console.log(`[Signaling Server Log] Updated FCM token for user ${userId} to ${fcmToken}`);
       } catch (e) {
         console.error('Failed to update FCM token dynamically:', e);
       }
@@ -415,217 +391,150 @@ io.on('connection', (socket) => {
   // Call Initiation
   socket.on('call-request', async ({ targetId, callerData }) => {
     const callerId = socketToUser.get(socket.id);
-    const callId = uuidv4();
-    logSignal('call-request', 'RECV', callId, `target: ${targetId} | type: ${callerData?.type}`);
+    console.log(`[Signaling Server Log] Received 'call-request' from socket ${socket.id} (user ${callerId}) targeting user ${targetId}.`);
+    const targetSocket = onlineUsers.get(targetId);
     
-    // Ensure only one active call per receiver
-    for (const [existingCallId, call] of activeCalls.entries()) {
-      if (call.targetId === targetId && call.status === 'ringing') {
-        socket.emit('call-failed', { callId, reason: 'User is busy' });
-        return;
-      }
+    if (targetSocket) {
+      console.log(`[Signaling Server Log] Forwarding 'incoming-call' to target socket ${targetSocket} (user ${targetId}).`);
+      io.to(targetSocket).emit('incoming-call', { 
+        callerId,
+        callerData // { username }
+      });
+    } else {
+      console.log(`[Signaling Server Log] Target user ${targetId} is offline.`);
     }
-    
-    const callObj = {
-      callId,
-      callerId,
-      targetId,
-      callerData,
-      status: 'ringing',
-      timestamp: Date.now()
-    };
+
+    // Set active call state for syncing
+    activeCalls.set(targetId, { callerId, callerData, timestamp: Date.now() });
     
     // Auto-expire after 30 seconds
-    callObj.timeoutId = setTimeout(async () => {
-      const c = activeCalls.get(callId);
-      if (c && c.status === 'ringing') {
-        c.status = 'missed';
-        activeCalls.delete(callId);
-        const cSocket = onlineUsers.get(callerId);
-        if (cSocket) io.to(cSocket).emit('call-missed', { callId });
-
-        // Send cancel push
-        try {
-          const userRes = await db.execute({ sql: 'SELECT fcm_token FROM users WHERE id = ?', args: [targetId] });
-          const fcmToken = userRes.rows[0]?.fcm_token;
-          if (fcmToken) {
-            await getMessaging().send({
-              data: { action: 'cancel_call', callId: callId },
-              android: { priority: 'high' },
-              token: fcmToken
-            });
-          }
-        } catch (e) { console.error(e); }
+    setTimeout(() => {
+      const call = activeCalls.get(targetId);
+      if (call && call.callerId === callerId) {
+        activeCalls.delete(targetId);
       }
     }, 30000);
-    
-    activeCalls.set(callId, callObj);
-    
-    // Notify caller that call was registered
-    socket.emit('call-initiated', { callId });
 
-    const sendFcmMessage = async (targetUserId, payloadData) => {
-      try {
-        const userRes = await db.execute({
-          sql: 'SELECT fcm_token FROM users WHERE id = ?',
-          args: [targetUserId]
-        });
-        const fcmToken = userRes.rows[0]?.fcm_token;
-        if (fcmToken) {
-          await getMessaging().send({
-            data: payloadData,
-            android: { priority: 'high' },
-            token: fcmToken
-          });
-          return true;
-        }
-      } catch (err) {
-        console.error(`[Signaling Server Log] Error sending push notification:`, err);
+    // Always attempt push notification if they have a token, because they might be connected but backgrounded
+    try {
+      const userRes = await db.execute({
+        sql: 'SELECT fcm_token FROM users WHERE id = ?',
+        args: [targetId]
+      });
+      const fcmToken = userRes.rows[0]?.fcm_token;
+      
+      if (fcmToken) {
+        console.log(`[Signaling Server Log] Attempting push notification to ${targetId}...`);
+        const message = {
+          notification: {
+            title: 'Incoming Call',
+            body: `${callerData?.username || 'Someone'} is calling you!`
+          },
+          data: {
+            callerId: callerId,
+            action: 'incoming_call'
+          },
+          android: {
+            priority: 'high',
+            notification: {
+              channelId: 'calls',
+              sound: 'default'
+            }
+          },
+          token: fcmToken
+        };
+        
+        await getMessaging().send(message);
+        console.log(`[Signaling Server Log] Push notification sent successfully to ${targetId}`);
+      } else if (!targetSocket) {
+        console.warn(`[Signaling Server Log] No FCM token and no socket found for user ${targetId}. Sending 'call-failed'.`);
+        socket.emit('call-failed', { reason: 'User offline and no push token' });
       }
-      return false;
-    };
-
-    const targetSocket = onlineUsers.get(targetId);
-    if (targetSocket) {
-      logSignal('incoming-call', 'EMIT', callId, `target socket: ${targetSocket}`);
-      io.to(targetSocket).emit('incoming-call', { callId, callerId, callerData });
-    }
-
-    const pushSent = await sendFcmMessage(targetId, {
-      callId: callId,
-      callerId: callerId,
-      callerName: callerData?.username || 'Someone',
-      callType: callerData?.type || 'video',
-      timestamp: String(Date.now()),
-      action: 'incoming_call'
-    });
-
-    if (!pushSent && !targetSocket) {
-      socket.emit('call-failed', { callId, reason: 'User offline and no push token' });
+    } catch (err) {
+      console.error(`[Signaling Server Log] Error sending push notification:`, err);
+      if (!targetSocket) {
+        socket.emit('call-failed', { reason: 'Failed to send push notification' });
+      }
     }
   });
 
-  socket.on('call-accept', ({ callId }) => {
-    logSignal('call-accept', 'RECV', callId);
-    const call = activeCalls.get(callId);
-    if (call) {
-      clearTimeout(call.timeoutId);
-      call.status = 'accepted';
-      const targetSocket = onlineUsers.get(call.callerId);
-      if (targetSocket) {
-        logSignal('call-accepted', 'EMIT', callId, `target socket: ${targetSocket}`);
-        io.to(targetSocket).emit('call-accepted', { callId, targetId: call.targetId });
-      }
+  socket.on('call-accept', ({ targetId }) => {
+    const receiverId = socketToUser.get(socket.id);
+    console.log(`[Signaling Server Log] Received 'call-accept' from socket ${socket.id} (user ${receiverId}) targeting user ${targetId}.`);
+    activeCalls.delete(receiverId); // clear active call state
+    const targetSocket = onlineUsers.get(targetId);
+    if (targetSocket) {
+      console.log(`[Signaling Server Log] Forwarding 'call-accepted' to target socket ${targetSocket} (user ${targetId}).`);
+      io.to(targetSocket).emit('call-accepted', {
+        targetId: receiverId
+      });
     } else {
-      socket.emit('call-failed', { callId, reason: 'Call expired or cancelled by caller' });
+      console.warn(`[Signaling Server Log] Caller user ${targetId} is offline for accept notification.`);
     }
   });
 
-  socket.on('call-decline', ({ callId }) => {
-    const call = activeCalls.get(callId);
-    if (call) {
-      clearTimeout(call.timeoutId);
-      call.status = 'declined';
-      activeCalls.delete(callId);
-      const targetSocket = onlineUsers.get(call.callerId);
-      if (targetSocket) {
-        io.to(targetSocket).emit('call-declined', { callId });
-      }
-    }
-  });
-
-  socket.on('offer', ({ callId, offer }) => {
-    logSignal('offer', 'RECV', callId);
-    const call = activeCalls.get(callId);
-    if (call) {
-      const targetSocket = onlineUsers.get(call.targetId);
-      if (targetSocket) {
-        logSignal('offer', 'EMIT', callId, `target socket: ${targetSocket}`);
-        io.to(targetSocket).emit('offer', { callId, offer, from: call.callerId });
-      }
-    }
-  });
-
-  socket.on('answer', ({ callId, answer }) => {
-    logSignal('answer', 'RECV', callId);
-    const call = activeCalls.get(callId);
-    if (call) {
-      const targetSocket = onlineUsers.get(call.callerId);
-      if (targetSocket) {
-        logSignal('answer', 'EMIT', callId, `target socket: ${targetSocket}`);
-        io.to(targetSocket).emit('answer', { callId, answer, from: call.targetId });
-      }
-    }
-  });
-
-  socket.on('ice-candidate', ({ callId, targetId, candidate }) => {
-    logSignal('ice-candidate', 'RECV', callId, `candidate for: ${targetId}`);
+  socket.on('call-decline', ({ targetId }) => {
+    const declinerId = socketToUser.get(socket.id);
+    console.log(`[Signaling Server Log] Received 'call-decline' from socket ${socket.id} (user ${declinerId}) targeting user ${targetId}.`);
+    activeCalls.delete(declinerId); // clear active call state
     const targetSocket = onlineUsers.get(targetId);
     if (targetSocket) {
-      logSignal('ice-candidate', 'EMIT', callId, `target socket: ${targetSocket}`);
-      io.to(targetSocket).emit('ice-candidate', { callId, candidate, from: socketToUser.get(socket.id) });
+      console.log(`[Signaling Server Log] Forwarding 'call-declined' to target socket ${targetSocket} (user ${targetId}).`);
+      io.to(targetSocket).emit('call-declined');
     }
   });
 
-  socket.on('end-call', async ({ callId }) => {
-    const call = activeCalls.get(callId);
-    if (call) {
-      clearTimeout(call.timeoutId);
-      activeCalls.delete(callId);
-      const fromId = socketToUser.get(socket.id);
-      const otherUser = fromId === call.callerId ? call.targetId : call.callerId;
-      const targetSocket = onlineUsers.get(otherUser);
-      if (targetSocket) {
-        io.to(targetSocket).emit('call-ended', { callId });
-      }
+  // WebRTC Signaling
+  socket.on('offer', ({ targetId, offer }) => {
+    const fromId = socketToUser.get(socket.id);
+    console.log(`[Signaling Server Log] Received 'offer' from socket ${socket.id} (user ${fromId}) targeting user ${targetId}.`);
+    const targetSocket = onlineUsers.get(targetId);
+    if (targetSocket) {
+      console.log(`[Signaling Server Log] Forwarding 'offer' to target socket ${targetSocket} (user ${targetId}).`);
+      io.to(targetSocket).emit('offer', { offer, from: fromId });
+    } else {
+      console.warn(`[Signaling Server Log] Target ${targetId} offline for 'offer'.`);
+    }
+  });
 
-      // If call was still ringing, send cancel push
-      if (call.status === 'ringing' && fromId === call.callerId) {
-        try {
-          const userRes = await db.execute({ sql: 'SELECT fcm_token FROM users WHERE id = ?', args: [otherUser] });
-          const fcmToken = userRes.rows[0]?.fcm_token;
-          if (fcmToken) {
-            await getMessaging().send({
-              data: { action: 'cancel_call', callId: callId },
-              android: { priority: 'high' },
-              token: fcmToken
-            });
-          }
-        } catch (e) { console.error(e); }
-      }
+  socket.on('answer', ({ targetId, answer }) => {
+    const fromId = socketToUser.get(socket.id);
+    console.log(`[Signaling Server Log] Received 'answer' from socket ${socket.id} (user ${fromId}) targeting user ${targetId}.`);
+    const targetSocket = onlineUsers.get(targetId);
+    if (targetSocket) {
+      console.log(`[Signaling Server Log] Forwarding 'answer' to target socket ${targetSocket} (user ${targetId}).`);
+      io.to(targetSocket).emit('answer', { answer, from: fromId });
+    } else {
+      console.warn(`[Signaling Server Log] Target ${targetId} offline for 'answer'.`);
+    }
+  });
+
+  socket.on('ice-candidate', ({ targetId, candidate }) => {
+    const fromId = socketToUser.get(socket.id);
+    console.log(`[Signaling Server Log] Received 'ice-candidate' from socket ${socket.id} (user ${fromId}) targeting user ${targetId}. Candidate: ${candidate.candidate.substring(0, 35)}...`);
+    const targetSocket = onlineUsers.get(targetId);
+    if (targetSocket) {
+      io.to(targetSocket).emit('ice-candidate', { candidate, from: fromId });
+    }
+  });
+
+  socket.on('end-call', ({ targetId }) => {
+    const fromId = socketToUser.get(socket.id);
+    console.log(`[Signaling Server Log] Received 'end-call' from socket ${socket.id} (user ${fromId}) targeting user ${targetId}.`);
+    activeCalls.delete(targetId); // clear active call state for receiver
+    activeCalls.delete(fromId); // clear active call state for sender (just in case)
+    const targetSocket = onlineUsers.get(targetId);
+    if (targetSocket) {
+      io.to(targetSocket).emit('call-ended');
     }
   });
 
   socket.on('disconnect', () => {
     const userId = socketToUser.get(socket.id);
     if (userId) {
-      logSignal('disconnect', 'RECV', 'N/A', `Starting 15s grace period`);
+      onlineUsers.delete(userId);
       socketToUser.delete(socket.id);
-      
-      // Give the user a grace period to reconnect (e.g. app coming to foreground)
-      setTimeout(() => {
-        // If the user hasn't reconnected with a new socket
-        if (onlineUsers.get(userId) === socket.id || !onlineUsers.has(userId)) {
-          logSignal('disconnect-timeout', 'PROC', 'N/A', `Grace period expired. Dropping calls for ${userId}`);
-          // End any active calls involving this user
-          for (const [callId, call] of activeCalls.entries()) {
-            if (call.callerId === userId || call.targetId === userId) {
-              clearTimeout(call.timeoutId);
-              activeCalls.delete(callId);
-              const otherId = call.callerId === userId ? call.targetId : call.callerId;
-              const otherSocket = onlineUsers.get(otherId);
-              if (otherSocket) io.to(otherSocket).emit('call-ended', { callId });
-            }
-          }
-          
-          if (onlineUsers.get(userId) === socket.id) {
-            onlineUsers.delete(userId);
-          }
-          io.emit('user-status-changed', { userId, isOnline: false });
-        } else {
-          logSignal('disconnect-reconnected', 'PROC', 'N/A', `User ${userId} reconnected during grace period.`);
-        }
-      }, 15000);
+      io.emit('user-status-changed', { userId, isOnline: false });
     }
   });
 });

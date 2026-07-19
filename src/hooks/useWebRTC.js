@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import socket from '../utils/socket';
 import useStore from '../store';
+import { Capacitor, registerPlugin } from '@capacitor/core';
+
+const AudioRoute = registerPlugin('AudioRoute');
+const Ringtone = registerPlugin('Ringtone');
 
 const ICE_SERVERS = {
   iceServers: [
@@ -20,17 +24,25 @@ if (import.meta.env.VITE_TURN_URL && import.meta.env.VITE_TURN_USERNAME && impor
   });
 }
 
-export default function useWebRTC(targetId, isIncoming = false, initialCallType = 'video') {
+export default function useWebRTC(targetId, isIncoming = false, initialCallType = 'video', passedCallId = null) {
   const user = useStore((state) => state.user);
+  const [activeCallId, setActiveCallId] = useState(passedCallId);
+  const activeCallIdRef = useRef(passedCallId);
+  useEffect(() => { activeCallIdRef.current = activeCallId; }, [activeCallId]);
   
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
   const [callStatus, setCallStatus] = useState(isIncoming ? 'ringing' : 'idle');
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(initialCallType !== 'voice');
-  const [isSpeakerOff, setIsSpeakerOff] = useState(false);
+  const [isLoudspeakerOn, setIsLoudspeakerOn] = useState(initialCallType !== 'voice');
   const [facingMode, setFacingMode] = useState('user');
   const [callEndReason, setCallEndReason] = useState('completed');
+
+  const logClientSignal = (event, direction, extra = '') => {
+    const ts = new Date().toISOString();
+    console.log(`[${ts}] [Client] [${direction}] ${event} | Socket: ${socket.id} | User: ${user?.id} | Call: ${activeCallIdRef.current} ${extra}`);
+  };
 
   const peerConnection = useRef(null);
   const localVideoRef = useRef(null);
@@ -51,8 +63,10 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
         else if (candStr.includes('typ relay')) candType = 'relay (TURN)';
 
         console.log(`[WebRTC Debug] Generated Local ICE Candidate: type=${candType}, candidate=${candStr}`);
+        logClientSignal('ice-candidate', 'EMIT', `type: ${candType}`);
 
         socket.emit('ice-candidate', {
+          callId: activeCallIdRef.current,
           targetId,
           candidate: event.candidate,
         });
@@ -67,6 +81,7 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
 
     pc.oniceconnectionstatechange = () => {
       console.log(`[WebRTC Debug] ICE Connection State Changed: ${pc.iceConnectionState}`);
+      logClientSignal('iceConnectionState', 'STATE', pc.iceConnectionState);
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
         setCallStatus('connected');
         // Log WebRTC parameters upon successful connection
@@ -83,6 +98,7 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
 
     pc.onconnectionstatechange = () => {
       console.log(`[WebRTC Debug] Peer Connection State Changed: ${pc.connectionState}`);
+      logClientSignal('connectionState', 'STATE', pc.connectionState);
       if (pc.connectionState === 'connected') {
         console.log('[WebRTC Debug] ConnectionState is connected! Updating callStatus to connected.');
         setCallStatus('connected');
@@ -112,11 +128,15 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
           clearInterval(statsIntervalRef.current);
           statsIntervalRef.current = null;
         }
+        if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+          endCall();
+        }
       }
     };
 
     pc.onsignalingstatechange = () => {
       console.log(`[WebRTC Debug] Signaling State Changed: ${pc.signalingState}`);
+      logClientSignal('signalingState', 'STATE', pc.signalingState);
     };
 
     pc.onicecandidateerror = (event) => {
@@ -209,7 +229,13 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
       console.log(`  - Added local track: kind=${track.kind}, id=${track.id} via sender.id=${sender.id}`);
     });
 
+    if (Capacitor.isNativePlatform()) {
+      Ringtone.stopRingtone().catch(e => console.error(e));
+      AudioRoute.setCommunicationMode({ enabled: true, isVideoCall: initialCallType !== 'voice' }).catch(e => console.error(e));
+    }
+
     console.log('[WebRTC Debug] Sending call-request to signaling server for targetId:', targetId);
+    logClientSignal('call-request', 'EMIT', `target: ${targetId}`);
     socket.emit('call-request', { targetId, callerData: { username: user.username, type: initialCallType } });
   }, [targetId, user, createPeerConnection, initialCallType]);
 
@@ -225,7 +251,8 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
       console.log('[WebRTC Debug] Setting local description (Offer)...');
       await peerConnection.current.setLocalDescription(offer);
       console.log('[WebRTC Debug] Sending offer to signaling server for target:', targetId);
-      socket.emit('offer', { targetId, offer: peerConnection.current.localDescription });
+      logClientSignal('offer', 'EMIT', `target: ${targetId}`);
+      socket.emit('offer', { callId: activeCallIdRef.current, offer: peerConnection.current.localDescription });
     } catch (error) {
       console.error('[WebRTC Debug] Error creating/sending offer:', error);
     }
@@ -234,7 +261,7 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
   // Target answers call
   const acceptCall = useCallback(async () => {
     console.log('[WebRTC Debug] Accepting incoming call...');
-    setCallStatus('connecting');
+    setCallStatus('negotiating');
     const stream = await startMedia(initialCallType);
     if (!stream) {
       console.error('[WebRTC Debug] Failed to accept call: media stream not available.');
@@ -248,13 +275,25 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
       console.log(`  - Added local track: kind=${track.kind}, id=${track.id} via sender.id=${sender.id}`);
     });
 
-    console.log('[WebRTC Debug] Sending call-accept to signaling server for caller:', targetId);
-    socket.emit('call-accept', { targetId });
+    if (Capacitor.isNativePlatform()) {
+      Ringtone.stopRingtone().catch(e => console.error(e));
+      AudioRoute.setCommunicationMode({ enabled: true, isVideoCall: initialCallType !== 'voice' }).catch(e => console.error(e));
+    }
+
+    console.log('[WebRTC Debug] Sending call-accept to signaling server...');
+    logClientSignal('call-accept', 'EMIT');
+    socket.emit('call-accept', { callId: activeCallIdRef.current });
   }, [targetId, createPeerConnection, initialCallType]);
 
   const declineCall = useCallback((reason = 'declined') => {
     console.log('[WebRTC Debug] Declining call. Reason:', reason);
-    socket.emit('call-decline', { targetId });
+    
+    if (Capacitor.isNativePlatform()) {
+      Ringtone.stopRingtone().catch(e => console.error(e));
+    }
+    
+    logClientSignal('call-decline', 'EMIT', reason);
+    socket.emit('call-decline', { callId: activeCallIdRef.current, reason });
     setCallEndReason(reason);
     setCallStatus('ended');
   }, [targetId]);
@@ -271,8 +310,9 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
       const answer = await peerConnection.current.createAnswer();
       console.log('[WebRTC Debug] Setting local description (Answer)...');
       await peerConnection.current.setLocalDescription(answer);
-      console.log('[WebRTC Debug] Sending answer to signaling server for target:', targetId);
-      socket.emit('answer', { targetId, answer: peerConnection.current.localDescription });
+      console.log('[WebRTC Debug] Sending answer to signaling server...');
+      logClientSignal('answer', 'EMIT');
+      socket.emit('answer', { callId: activeCallIdRef.current, answer: peerConnection.current.localDescription });
     } catch (error) {
       console.error('[WebRTC Debug] Error handling offer/creating answer:', error);
     }
@@ -321,20 +361,22 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
   }, []);
 
   const toggleVideo = useCallback(() => {
-    if (localStreamRef.current) {
-      const videoTrack = localStreamRef.current.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setIsVideoOn(videoTrack.enabled);
+    setIsVideoOn(prev => {
+      if (localStreamRef.current) {
+        localStreamRef.current.getVideoTracks().forEach(t => t.enabled = !prev);
       }
-    }
+      return !prev;
+    });
   }, []);
 
   const toggleSpeaker = useCallback(() => {
-    if (remoteVideoRef.current) {
-      remoteVideoRef.current.muted = !remoteVideoRef.current.muted;
-      setIsSpeakerOff(remoteVideoRef.current.muted);
-    }
+    setIsLoudspeakerOn(prev => {
+      const newState = !prev;
+      if (Capacitor.isNativePlatform()) {
+        AudioRoute.setSpeaker({ useSpeaker: newState }).catch(e => console.error(e));
+      }
+      return newState;
+    });
   }, []);
 
   const flipCamera = useCallback(async () => {
@@ -391,20 +433,44 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
     setRemoteStream(null);
     setCallEndReason(reason);
     setCallStatus('ended');
-    socket.emit('end-call', { targetId });
+    
+    if (Capacitor.isNativePlatform()) {
+      AudioRoute.setCommunicationMode({ enabled: false, isVideoCall: false }).catch(e => console.error(e));
+    }
+    
+    socket.emit('end-call', { callId: activeCallIdRef.current });
   }, [targetId]);
 
   useEffect(() => {
     if (!targetId || !user) return;
 
     // Listeners
+    socket.on('call-initiated', (data) => {
+      console.log('[WebRTC Debug] Received call-initiated with callId:', data.callId);
+      logClientSignal('call-initiated', 'RECV', data.callId);
+      setActiveCallId(data.callId);
+    });
+    socket.on('call-missed', () => {
+      console.log('[WebRTC Debug] Call missed/timed out by server.');
+      if (Capacitor.isNativePlatform()) {
+        Ringtone.stopRingtone().catch(e => console.error(e));
+      }
+      if (peerConnection.current) peerConnection.current.close();
+      if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop());
+      setCallEndReason('missed');
+      setCallStatus('ended');
+    });
     socket.on('call-accepted', () => {
       console.log('[WebRTC Debug] Received call-accepted event on client.');
+      logClientSignal('call-accepted', 'RECV');
+      setCallStatus('negotiating');
       proceedWithOffer();
     });
 
     socket.on('call-declined', () => {
       console.log('[WebRTC Debug] Received call-declined event on client.');
+      if (peerConnection.current) peerConnection.current.close();
+      if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop());
       setCallEndReason('declined');
       setCallStatus('ended');
       alert('Call was declined or user is busy.');
@@ -412,6 +478,8 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
 
     socket.on('call-failed', (data) => {
       console.warn('[WebRTC Debug] Received call-failed event on client:', data.reason);
+      if (peerConnection.current) peerConnection.current.close();
+      if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop());
       setCallEndReason('missed');
       setCallStatus('ended');
       alert(data.reason || 'Call failed');
@@ -419,23 +487,30 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
 
     socket.on('offer', (data) => {
       console.log('[WebRTC Debug] Received offer event on client.');
+      logClientSignal('offer', 'RECV');
       handleOffer(data.offer);
     });
     
     socket.on('answer', (data) => {
       console.log('[WebRTC Debug] Received answer event on client.');
+      logClientSignal('answer', 'RECV');
       handleAnswer(data.answer);
     });
     
     socket.on('ice-candidate', (data) => {
+      logClientSignal('ice-candidate', 'RECV');
       handleICECandidate(data.candidate);
     });
     
     socket.on('call-ended', () => {
       console.log('[WebRTC Debug] Received call-ended event on client.');
+      if (Capacitor.isNativePlatform()) {
+        Ringtone.stopRingtone().catch(e => console.error(e));
+        AudioRoute.setCommunicationMode({ enabled: false, isVideoCall: false }).catch(e => console.error(e));
+      }
       if (peerConnection.current) peerConnection.current.close();
       if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop());
-      setCallEndReason(prev => prev === 'completed' ? 'missed' : prev); // If they didn't answer, it's missed
+      setCallEndReason(prev => prev === 'completed' ? 'missed' : prev);
       setCallStatus('ended');
     });
 
@@ -447,6 +522,8 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
       socket.off('answer');
       socket.off('ice-candidate');
       socket.off('call-ended');
+      socket.off('call-initiated');
+      socket.off('call-missed');
       
       // Ensure camera/mic is turned off when leaving the screen
       if (localStreamRef.current) {
@@ -459,7 +536,7 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
   }, [targetId, user, proceedWithOffer, handleOffer, handleAnswer, handleICECandidate]);
 
   return {
-    localStream, remoteStream, callStatus, isMuted, isVideoOn, isSpeakerOff, callEndReason,
+    localStream, remoteStream, callStatus, isMuted, isVideoOn, isLoudspeakerOn, callEndReason,
     initCall, acceptCall, declineCall, endCall, toggleMute, toggleVideo, toggleSpeaker,
     flipCamera, localVideoRef, remoteVideoRef
   };

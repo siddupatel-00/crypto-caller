@@ -57,8 +57,10 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.4.2",
+    "@capacitor/app": "^8.1.1",
     "@capacitor/cli": "^8.4.2",
     "@capacitor/core": "^8.4.2",
+    "@capacitor/local-notifications": "^8.2.1",
     "@capacitor/push-notifications": "^8.1.2",
     "classnames": "^2.5.1",
     "date-fns": "^4.4.0",
