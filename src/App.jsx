@@ -19,6 +19,7 @@ function App() {
 
   // Initialize Push Notifications
   usePushNotifications();
+  const navigate = useNavigate();
 
   // Connect socket as soon as we have a user — this must happen here (App-level)
   // because deep links can open /call/:targetId directly, skipping DashboardScreen.
@@ -51,7 +52,6 @@ function App() {
   }, [navigate]);
 
   // Listen for Deep Links from Android Native Accept Action
-  const navigate = useNavigate();
   useEffect(() => {
     import('@capacitor/app').then(({ App: CapacitorApp }) => {
       CapacitorApp.addListener('appUrlOpen', data => {

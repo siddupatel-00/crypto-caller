@@ -61,8 +61,11 @@ public class CallMessagingService extends FirebaseMessagingService {
 
         int notifId = callId != null ? callId.hashCode() : (int) System.currentTimeMillis();
 
-        // Open IncomingCallActivity natively
-        Intent tapIntent = new Intent(this, IncomingCallActivity.class);
+        // Tap notification → open the app (MainActivity / dashboard).
+        Intent tapIntent = getPackageManager().getLaunchIntentForPackage(getPackageName());
+        if (tapIntent == null) {
+            tapIntent = new Intent(this, MainActivity.class);
+        }
         tapIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         tapIntent.putExtra("callId", callId);
         tapIntent.putExtra("callerId", callerId);
@@ -70,8 +73,8 @@ public class CallMessagingService extends FirebaseMessagingService {
         tapIntent.putExtra("callType", callType);
         PendingIntent tapPendingIntent = PendingIntent.getActivity(this, notifId, tapIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        // Full Screen Intent – opens the native call UI
-        Intent fullScreenIntent = new Intent(this, IncomingCallActivity.class);
+        // Full Screen Intent – opens the main React app directly over the lock screen
+        Intent fullScreenIntent = new Intent(this, MainActivity.class);
         fullScreenIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         fullScreenIntent.putExtra("callId", callId);
         fullScreenIntent.putExtra("callerId", callerId);

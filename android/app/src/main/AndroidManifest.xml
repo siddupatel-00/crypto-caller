@@ -37,21 +37,7 @@
             </intent-filter>
         </service>
 
-        <receiver android:name=".CallActionReceiver" android:exported="false">
-            <intent-filter>
-                <action android:name="DECLINE_CALL" />
-            </intent-filter>
-        </receiver>
 
-        <activity
-            android:name=".IncomingCallActivity"
-            android:theme="@style/AppTheme.NoActionBar"
-            android:screenOrientation="portrait"
-            android:showOnLockScreen="true"
-            android:turnScreenOn="true"
-            android:exported="false"
-            android:launchMode="singleTop">
-        </activity>
 
         <provider
             android:name="androidx.core.content.FileProvider"
