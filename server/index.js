@@ -546,7 +546,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('call-decline', ({ callId }) => {
+  socket.on('call-decline', async ({ callId }) => {
     const call = activeCalls.get(callId);
     if (call) {
       clearTimeout(call.timeoutId);
@@ -556,6 +556,8 @@ io.on('connection', (socket) => {
       if (targetSocket) {
         io.to(targetSocket).emit('call-declined', { callId });
       }
+      // Send cancel_call FCM push to stop the native ringtone on the receiver's device
+      sendFcmMessage(call.targetId, { action: 'cancel_call', callId }).catch(console.error);
     }
   });
 

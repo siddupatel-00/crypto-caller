@@ -35,6 +35,17 @@ function App() {
     }
   }, [user]);
 
+  // Global incoming-call listener — catches the server's pending-call re-sync
+  // even if DashboardScreen hasn't mounted yet (e.g. app opened from notification)
+  useEffect(() => {
+    const handleIncomingCall = (data) => {
+      console.log('[App] Global incoming-call received:', data);
+      navigate(`/call/${data.callerId}?incoming=true&callerName=${data.callerData?.username || 'Someone'}&type=${data.callerData?.type || 'video'}&callId=${data.callId}`);
+    };
+    socket.on('incoming-call', handleIncomingCall);
+    return () => socket.off('incoming-call', handleIncomingCall);
+  }, [navigate]);
+
   // Listen for Deep Links from Android Native Accept Action
   const navigate = useNavigate();
   useEffect(() => {

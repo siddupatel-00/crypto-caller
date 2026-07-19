@@ -61,18 +61,28 @@ public class CallMessagingService extends FirebaseMessagingService {
 
         int notifId = callId != null ? callId.hashCode() : (int) System.currentTimeMillis();
 
-        // Tap notification to open the app's call screen (no autoAccept - user decides in-app)
-        Intent tapIntent = new Intent(Intent.ACTION_VIEW,
-                Uri.parse("callverse://call/" + callerId + "?incoming=true&callId=" + callId + "&type=" + (callType != null ? callType : "video")));
-        tapIntent.setPackage(this.getPackageName());
+        // Tap notification → open the app (MainActivity / dashboard).
+        // The server re-sends pending incoming-call events on socket registration,
+        // so the DashboardScreen will automatically show the Answer/Decline UI.
+        Intent tapIntent = getPackageManager().getLaunchIntentForPackage(getPackageName());
+        if (tapIntent == null) {
+            tapIntent = new Intent(this, MainActivity.class);
+        }
         tapIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        // Store call data so the app can use it if needed
+        tapIntent.putExtra("callId", callId);
+        tapIntent.putExtra("callerId", callerId);
+        tapIntent.putExtra("callerName", callerName);
+        tapIntent.putExtra("callType", callType);
         PendingIntent tapPendingIntent = PendingIntent.getActivity(this, notifId, tapIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        // Full Screen Intent – same as tap intent (opens app call screen, user answers/declines there)
-        Intent fullScreenIntent = new Intent(Intent.ACTION_VIEW,
-                Uri.parse("callverse://call/" + callerId + "?incoming=true&callId=" + callId + "&type=" + (callType != null ? callType : "video")));
-        fullScreenIntent.setPackage(this.getPackageName());
+        // Full Screen Intent – same: opens the app, user answers/declines in-app
+        Intent fullScreenIntent = new Intent(this, MainActivity.class);
         fullScreenIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        fullScreenIntent.putExtra("callId", callId);
+        fullScreenIntent.putExtra("callerId", callerId);
+        fullScreenIntent.putExtra("callerName", callerName);
+        fullScreenIntent.putExtra("callType", callType);
         PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(this, notifId + 1, fullScreenIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
@@ -85,7 +95,6 @@ public class CallMessagingService extends FirebaseMessagingService {
             .setOngoing(true)
             .setContentIntent(tapPendingIntent)
             .setFullScreenIntent(fullScreenPendingIntent, true);
-        // No Accept/Decline action buttons – user taps to open app, answers/declines in-app
 
         notificationManager.notify(notifId, builder.build());
 
