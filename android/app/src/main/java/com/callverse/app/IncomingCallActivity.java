@@ -26,15 +26,10 @@ public class IncomingCallActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true);
             setTurnScreenOn(true);
-            KeyguardManager keyguardManager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
-            if (keyguardManager != null) {
-                keyguardManager.requestDismissKeyguard(this, null);
-            }
         } else {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
                     | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-                    | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                    | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
+                    | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
 
         setContentView(R.layout.activity_incoming_call);
@@ -64,6 +59,31 @@ public class IncomingCallActivity extends AppCompatActivity {
 
     private void acceptCall() {
         stopRingtoneAndCancelNotification();
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            KeyguardManager keyguardManager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
+            if (keyguardManager != null && keyguardManager.isKeyguardLocked()) {
+                keyguardManager.requestDismissKeyguard(this, new KeyguardManager.KeyguardDismissCallback() {
+                    @Override
+                    public void onDismissSucceeded() {
+                        launchDeepLink();
+                    }
+                    @Override
+                    public void onDismissError() {
+                        finish();
+                    }
+                    @Override
+                    public void onDismissCancelled() {
+                        finish();
+                    }
+                });
+                return;
+            }
+        }
+        launchDeepLink();
+    }
+
+    private void launchDeepLink() {
         // Fire deep link to open the React app
         Intent acceptIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("callverse://call/" + callerId + "?incoming=true&callId=" + callId + "&type=" + callType + "&autoAccept=true"));
         acceptIntent.setPackage(getPackageName());

@@ -62,12 +62,13 @@ export default function CallScreen() {
 
   // Auto-init for outgoing calls, or auto-accept for push notification taps
   const autoAccept = queryParams.get('autoAccept') === 'true';
+  const hasAutoAccepted = useRef(false);
   useEffect(() => {
     if (!isIncoming && callStatus === 'idle') {
       initCall();
-    } else if (isIncoming && autoAccept && callStatus === 'ringing') {
-      // Must wait for socket to be connected before accepting
+    } else if (isIncoming && autoAccept && callStatus === 'ringing' && !hasAutoAccepted.current) {
       const doAccept = () => {
+        hasAutoAccepted.current = true;
         console.log('[CallScreen] Auto-accepting call. Socket connected:', socket.connected);
         acceptCall();
       };
@@ -76,13 +77,14 @@ export default function CallScreen() {
         doAccept();
       } else {
         console.log('[CallScreen] Socket not connected yet. Waiting for connection before auto-accept...');
-        const onConnect = () => {
-          console.log('[CallScreen] Socket connected! Now auto-accepting.');
-          // Small delay to let register complete
-          setTimeout(doAccept, 300);
-        };
-        socket.once('connect', onConnect);
-        return () => socket.off('connect', onConnect);
+        const checkInterval = setInterval(() => {
+          if (socket.connected) {
+            clearInterval(checkInterval);
+            console.log('[CallScreen] Socket connected! Now auto-accepting.');
+            setTimeout(doAccept, 300); // Small delay to let register complete
+          }
+        }, 100);
+        return () => clearInterval(checkInterval);
       }
     }
   }, [isIncoming, callStatus, initCall, acceptCall, autoAccept]);

@@ -28,9 +28,18 @@ public class CallActionReceiver extends BroadcastReceiver {
                 new Thread(() -> {
                     try {
                         // Using the production URL instead of localhost
-                        URL url = new URL("https://crypto-caller.onrender.com/api/calls/decline/" + callId);
+                        URL url = new URL("https://crypto-caller.onrender.com/api/calls/decline");
                         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                         conn.setRequestMethod("POST");
+                        conn.setRequestProperty("Content-Type", "application/json; utf-8");
+                        conn.setRequestProperty("Accept", "application/json");
+                        conn.setDoOutput(true);
+                        
+                        String jsonInputString = "{\"callId\": \"" + callId + "\"}";
+                        try(java.io.OutputStream os = conn.getOutputStream()) {
+                            byte[] input = jsonInputString.getBytes("utf-8");
+                            os.write(input, 0, input.length);
+                        }
                         conn.getResponseCode();
                         conn.disconnect();
                     } catch (Exception e) {

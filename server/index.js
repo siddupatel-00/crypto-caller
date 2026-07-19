@@ -516,6 +516,8 @@ io.on('connection', (socket) => {
         logSignal('call-accepted', 'EMIT', callId, `target socket: ${targetSocket}`);
         io.to(targetSocket).emit('call-accepted', { callId, targetId: call.targetId });
       }
+      // Instantly kill the native ringtone on the receiver's phone just in case it's still ringing
+      sendFcmMessage(call.targetId, { action: 'cancel_call', callId }).catch(console.error);
     } else {
       socket.emit('call-failed', { callId, reason: 'Call expired or cancelled by caller' });
     }
