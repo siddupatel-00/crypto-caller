@@ -356,6 +356,15 @@ app.post('/api/calls/decline', (req, res) => {
     if (callerSocket) {
       io.to(callerSocket).emit('call-declined', { callId });
     }
+    
+    // Notify receiver's React app (if open in background) to stop ringing
+    const targetSocket = onlineUsers.get(call.targetId);
+    if (targetSocket) {
+      io.to(targetSocket).emit('call-declined', { callId });
+    }
+
+    // Send cancel_call push just in case
+    sendFcmMessage(call.targetId, { action: 'cancel_call', callId }).catch(console.error);
   }
   res.json({ success: true });
 });

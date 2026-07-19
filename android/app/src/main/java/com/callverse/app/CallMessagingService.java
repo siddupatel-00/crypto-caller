@@ -61,23 +61,17 @@ public class CallMessagingService extends FirebaseMessagingService {
 
         int notifId = callId != null ? callId.hashCode() : (int) System.currentTimeMillis();
 
-        // Tap notification → open the app (MainActivity / dashboard).
-        // The server re-sends pending incoming-call events on socket registration,
-        // so the DashboardScreen will automatically show the Answer/Decline UI.
-        Intent tapIntent = getPackageManager().getLaunchIntentForPackage(getPackageName());
-        if (tapIntent == null) {
-            tapIntent = new Intent(this, MainActivity.class);
-        }
+        // Open IncomingCallActivity natively
+        Intent tapIntent = new Intent(this, IncomingCallActivity.class);
         tapIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        // Store call data so the app can use it if needed
         tapIntent.putExtra("callId", callId);
         tapIntent.putExtra("callerId", callerId);
         tapIntent.putExtra("callerName", callerName);
         tapIntent.putExtra("callType", callType);
         PendingIntent tapPendingIntent = PendingIntent.getActivity(this, notifId, tapIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        // Full Screen Intent – same: opens the app, user answers/declines in-app
-        Intent fullScreenIntent = new Intent(this, MainActivity.class);
+        // Full Screen Intent – opens the native call UI
+        Intent fullScreenIntent = new Intent(this, IncomingCallActivity.class);
         fullScreenIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         fullScreenIntent.putExtra("callId", callId);
         fullScreenIntent.putExtra("callerId", callerId);
@@ -93,6 +87,7 @@ public class CallMessagingService extends FirebaseMessagingService {
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setAutoCancel(true)
             .setOngoing(true)
+            .setSound(null) // Do not play default sound, we manage it with RingtoneManager
             .setContentIntent(tapPendingIntent)
             .setFullScreenIntent(fullScreenPendingIntent, true);
 

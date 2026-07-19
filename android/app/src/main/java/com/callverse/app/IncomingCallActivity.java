@@ -106,10 +106,14 @@ public class IncomingCallActivity extends AppCompatActivity {
             CallMessagingService.currentRingtone.stop();
             CallMessagingService.currentRingtone = null;
         }
-        int notifId = callId != null ? callId.hashCode() : 0;
-        if (notifId != 0) {
-            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            nm.cancel(notifId);
+        
+        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm != null) {
+            int notifId = callId != null ? callId.hashCode() : 0;
+            if (notifId != 0) {
+                nm.cancel(notifId);
+            }
+            nm.cancelAll(); // Just to be absolutely safe, clear all
         }
     }
 }

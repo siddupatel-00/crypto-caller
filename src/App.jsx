@@ -40,7 +40,11 @@ function App() {
   useEffect(() => {
     const handleIncomingCall = (data) => {
       console.log('[App] Global incoming-call received:', data);
-      navigate(`/call/${data.callerId}?incoming=true&callerName=${data.callerData?.username || 'Someone'}&type=${data.callerData?.type || 'video'}&callId=${data.callId}`);
+      // Only navigate if we aren't already on the call screen for this caller.
+      // This prevents overwriting the autoAccept=true parameter from the native deep link.
+      if (!window.location.pathname.startsWith(`/call/${data.callerId}`)) {
+        navigate(`/call/${data.callerId}?incoming=true&callerName=${data.callerData?.username || 'Someone'}&type=${data.callerData?.type || 'video'}&callId=${data.callId}`);
+      }
     };
     socket.on('incoming-call', handleIncomingCall);
     return () => socket.off('incoming-call', handleIncomingCall);
