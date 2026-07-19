@@ -28,9 +28,10 @@ function App() {
       socket._callverseFcmToken = useStore.getState().fcmToken;
       if (!socket.connected) {
         socket.connect();
+      } else {
+        // Socket already connected — register immediately
+        socket.emit('register', { userId: user.id, fcmToken: useStore.getState().fcmToken });
       }
-      // Always register (in case of reconnection or first connection)
-      socket.emit('register', { userId: user.id, fcmToken: useStore.getState().fcmToken });
     }
   }, [user]);
 

@@ -12,10 +12,6 @@ import androidx.core.app.NotificationCompat;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 import com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin;
-import android.text.Spannable;
-import android.text.SpannableString;
-import android.text.style.ForegroundColorSpan;
-import android.graphics.Color;
 import java.util.Map;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
@@ -65,46 +61,31 @@ public class CallMessagingService extends FirebaseMessagingService {
 
         int notifId = callId != null ? callId.hashCode() : (int) System.currentTimeMillis();
 
-        // Accept Action now launches deep link with autoAccept to handle acceptance without UI
-        Intent acceptIntent = new Intent(Intent.ACTION_VIEW,
-                Uri.parse("callverse://call/" + callId + "?incoming=true&callId=" + callId + "&autoAccept=true"));
-        acceptIntent.setPackage(this.getPackageName());
-        PendingIntent acceptPendingIntent = PendingIntent.getActivity(this, notifId + 1, acceptIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        // Tap notification to open the app's call screen (no autoAccept - user decides in-app)
+        Intent tapIntent = new Intent(Intent.ACTION_VIEW,
+                Uri.parse("callverse://call/" + callerId + "?incoming=true&callId=" + callId + "&type=" + (callType != null ? callType : "video")));
+        tapIntent.setPackage(this.getPackageName());
+        tapIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent tapPendingIntent = PendingIntent.getActivity(this, notifId, tapIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        // Decline Action (Broadcast Receiver hits API)
-        Intent declineIntent = new Intent(this, CallActionReceiver.class);
-        declineIntent.setAction("DECLINE_CALL");
-        declineIntent.putExtra("callId", callId);
-        declineIntent.putExtra("notifId", notifId);
-        PendingIntent declinePendingIntent = PendingIntent.getBroadcast(this, notifId + 2, declineIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
-        // Full Screen Intent (Lock Screen UI)
-        Intent fullScreenIntent = new Intent(this, IncomingCallActivity.class);
-        fullScreenIntent.putExtra("callId", callId);
-        fullScreenIntent.putExtra("callerId", callerId);
-        fullScreenIntent.putExtra("callerName", callerName);
-        fullScreenIntent.putExtra("callType", callType);
-        fullScreenIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(this, notifId + 3, fullScreenIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
-        // Colored Actions for Heads-up Notification
-        SpannableString acceptText = new SpannableString("Answer");
-        acceptText.setSpan(new ForegroundColorSpan(Color.parseColor("#4CAF50")), 0, acceptText.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-        
-        SpannableString declineText = new SpannableString("Decline");
-        declineText.setSpan(new ForegroundColorSpan(Color.parseColor("#F44336")), 0, declineText.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        // Full Screen Intent – same as tap intent (opens app call screen, user answers/declines there)
+        Intent fullScreenIntent = new Intent(Intent.ACTION_VIEW,
+                Uri.parse("callverse://call/" + callerId + "?incoming=true&callId=" + callId + "&type=" + (callType != null ? callType : "video")));
+        fullScreenIntent.setPackage(this.getPackageName());
+        fullScreenIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(this, notifId + 1, fullScreenIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("Incoming " + (callType != null ? callType : "video") + " call")
-            .setContentText(callerName != null ? callerName : "Someone is calling")
+            .setContentText(callerName != null ? callerName + " is calling" : "Someone is calling")
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setAutoCancel(true)
             .setOngoing(true)
-            .setFullScreenIntent(fullScreenPendingIntent, true)
-            .addAction(0, acceptText, acceptPendingIntent)
-            .addAction(0, declineText, declinePendingIntent);
+            .setContentIntent(tapPendingIntent)
+            .setFullScreenIntent(fullScreenPendingIntent, true);
+        // No Accept/Decline action buttons – user taps to open app, answers/declines in-app
 
         notificationManager.notify(notifId, builder.build());
 

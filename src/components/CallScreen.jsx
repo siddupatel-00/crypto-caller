@@ -40,6 +40,15 @@ export default function CallScreen() {
     flipCamera, localVideoRef, remoteVideoRef, localStream, remoteStream,
   } = useWebRTC(targetId, isIncoming, callType, callId);
 
+  // Dismiss native notification when call screen opens for incoming call
+  useEffect(() => {
+    if (isIncoming && Capacitor.isNativePlatform()) {
+      import('@capacitor/push-notifications').then(({ PushNotifications }) => {
+        PushNotifications.removeAllDeliveredNotifications();
+      }).catch(console.error);
+    }
+  }, [isIncoming]);
+
   const [controlsVisible, setControlsVisible] = useState(true);
   const controlsTimeoutRef = useRef(null);
 

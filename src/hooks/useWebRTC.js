@@ -280,9 +280,31 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
       AudioRoute.setCommunicationMode({ enabled: true, isVideoCall: initialCallType !== 'voice' }).catch(e => console.error(e));
     }
 
-    console.log('[WebRTC Debug] Sending call-accept to signaling server...');
-    logClientSignal('call-accept', 'EMIT');
-    socket.emit('call-accept', { callId: activeCallIdRef.current });
+    const emitAccept = () => {
+      console.log('[WebRTC Debug] Sending call-accept to signaling server. callId:', activeCallIdRef.current, 'socket.connected:', socket.connected);
+      logClientSignal('call-accept', 'EMIT');
+      socket.emit('call-accept', { callId: activeCallIdRef.current });
+    };
+
+    // Wait for socket to be connected AND registered before emitting call-accept
+    if (socket.connected && socket._registeredAck) {
+      emitAccept();
+    } else {
+      console.log('[WebRTC Debug] Waiting for socket connection and registration before emitting call-accept...');
+      let attempts = 0;
+      const maxAttempts = 100; // 10 seconds max
+      const interval = setInterval(() => {
+        attempts++;
+        if (socket.connected && socket._registeredAck) {
+          clearInterval(interval);
+          emitAccept();
+        } else if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          console.error('[WebRTC Debug] Timed out waiting for socket registration. Emitting anyway.');
+          emitAccept();
+        }
+      }, 100);
+    }
   }, [targetId, createPeerConnection, initialCallType]);
 
   const declineCall = useCallback((reason = 'declined') => {

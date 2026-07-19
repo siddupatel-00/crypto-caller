@@ -424,6 +424,9 @@ io.on('connection', (socket) => {
         }
       }
 
+      // Emit registration acknowledgment
+      socket.emit('register-ack', { userId, timestamp: Date.now() });
+
       // Sync pending active calls for this user
       for (const [callId, call] of activeCalls.entries()) {
         if (call.targetId === userId && call.status === 'ringing' && (Date.now() - call.timestamp < 30000)) {

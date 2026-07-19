@@ -21,8 +21,15 @@ socket.on('connect', () => {
   }
 });
 
+// Listen for registration acknowledgment
+socket.on('register-ack', (data) => {
+  console.log('[Socket.IO] Registration acknowledged:', data);
+  socket._registeredAck = true;
+});
+
 socket.on('disconnect', (reason) => {
   console.log(`[Socket.IO] Disconnected. Reason: ${reason}`);
+  socket._registeredAck = false;
 });
 
 export default socket;

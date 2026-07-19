@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 import useStore from '../store';
-import { SERVER_URL } from '../utils/socket';
+import socket from '../utils/socket';
 
 export default function usePushNotifications() {
   const user = useStore(state => state.user);
@@ -30,18 +30,6 @@ export default function usePushNotifications() {
             visibility: 1,
             vibration: true,
           });
-
-          await PushNotifications.registerActionTypes({
-            types: [
-              {
-                id: 'CALL_ACTION',
-                actions: [
-                  { id: 'accept', title: 'Accept', foreground: true },
-                  { id: 'decline', title: 'Decline', foreground: true, destructive: true }
-                ]
-              }
-            ]
-          });
         }
       } else {
         console.log('Push notification permission denied');
@@ -53,9 +41,7 @@ export default function usePushNotifications() {
     PushNotifications.addListener('registration', (token) => {
       console.log('FCM Push registration success, token: ' + token.value);
       useStore.getState().setFcmToken(token.value);
-      const { socket } = require('../utils/socket');
-      const currentUser = useStore.getState().user;
-      if (socket.connected && currentUser) {
+      if (socket.connected && useStore.getState().user) {
         socket.emit('update-fcm-token', token.value);
       }
     });
@@ -65,43 +51,19 @@ export default function usePushNotifications() {
     });
 
     PushNotifications.addListener('pushNotificationReceived', (notification) => {
-      console.log('Push received: ', notification);
+      // Notification received while app is in foreground — suppress it.
+      // The DashboardScreen's incoming-call socket listener handles in-app calls.
+      console.log('Push received in foreground (suppressed): ', notification);
     });
 
     PushNotifications.addListener('pushNotificationActionPerformed', async (notification) => {
       console.log('Push action performed: ', notification);
       const data = notification.notification.data;
-      const actionId = notification.actionId; // 'accept', 'decline', or 'tap'
 
       if (data && data.action === 'incoming_call' && data.callId) {
-        
-        if (actionId === 'decline') {
-          try {
-            await fetch(`${SERVER_URL}/api/calls/decline`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ callId: data.callId })
-            });
-            // We just let it silently background/stay there
-            PushNotifications.removeAllDeliveredNotifications();
-          } catch(e) { console.error('Decline error', e); }
-          return;
-        }
-
-        // For accept or normal tap, validate first
-        try {
-          const res = await fetch(`${SERVER_URL}/api/calls/validate/${data.callId}`);
-          const statusData = await res.json();
-          if (statusData.status === 'RINGING' || statusData.status === 'ACTIVE') {
-            navigate(`/call/${data.callerId}?incoming=true&callId=${data.callId}&type=${data.callType || 'video'}&autoAccept=true`);
-          } else {
-            alert(`Call ended (${statusData.status})`);
-            PushNotifications.removeAllDeliveredNotifications();
-            // Toaster or alert works better here than navigating
-          }
-        } catch(e) {
-          console.error('Validation error', e);
-        }
+        // User tapped the notification — navigate to the call screen
+        // No autoAccept: user will answer/decline in the app UI
+        navigate(`/call/${data.callerId}?incoming=true&callId=${data.callId}&type=${data.callType || 'video'}&callerName=${data.callerName || 'Someone'}`);
       }
     });
   };
