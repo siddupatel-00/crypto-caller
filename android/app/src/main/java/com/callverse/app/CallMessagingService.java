@@ -65,9 +65,10 @@ public class CallMessagingService extends FirebaseMessagingService {
 
         int notifId = callId != null ? callId.hashCode() : (int) System.currentTimeMillis();
 
-        // Accept Action (Opens app via Deep Link)
-        Intent acceptIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("callverse://call/" + callerId + "?incoming=true&callId=" + callId + "&type=" + callType + "&autoAccept=true"));
-        acceptIntent.setPackage(getPackageName());
+        // Accept Action now launches deep link with autoAccept to handle acceptance without UI
+        Intent acceptIntent = new Intent(Intent.ACTION_VIEW,
+                Uri.parse("callverse://call/" + callId + "?incoming=true&callId=" + callId + "&autoAccept=true"));
+        acceptIntent.setPackage(this.getPackageName());
         PendingIntent acceptPendingIntent = PendingIntent.getActivity(this, notifId + 1, acceptIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         // Decline Action (Broadcast Receiver hits API)

@@ -317,6 +317,25 @@ app.post('/api/history', async (req, res) => {
 
 // ── Call Lifecycle API ──────────────────────────────────────────
 
+app.post('/api/calls/accept/:callId', (req, res) => {
+  const { callId } = req.params;
+  if (!callId) return res.status(400).json({ error: 'Missing callId' });
+
+  const call = activeCalls.get(callId);
+  if (call) {
+    clearTimeout(call.timeoutId);
+    call.status = 'accepted';
+    // Notify caller that call was accepted
+    const callerSocket = onlineUsers.get(call.callerId);
+    if (callerSocket) {
+      io.to(callerSocket).emit('call-accepted', { callId, targetId: call.targetId });
+    }
+    // Send cancel push to receiver to stop ringtone (if still ringing)
+    sendFcmMessage(call.targetId, { action: 'cancel_call', callId }).catch(console.error);
+  }
+  res.json({ success: true });
+});
+
 app.get('/api/calls/validate/:callId', (req, res) => {
   const call = activeCalls.get(req.params.callId);
   if (!call) return res.json({ status: 'EXPIRED' });
