@@ -170,3 +170,23 @@
 .auth-toggle-link:hover {
   color: var(--primary);
 }
+
+.auth-error-msg {
+  background: rgba(255, 60, 60, 0.15);
+  border: 1px solid rgba(255, 60, 60, 0.4);
+  color: #ff8888;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.auth-success-msg {
+  background: rgba(60, 255, 120, 0.15);
+  border: 1px solid rgba(60, 255, 120, 0.4);
+  color: #88ffaa;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+  font-size: 14px;
+}
