@@ -369,6 +369,27 @@ const socketToUser = new Map();
 // Map<callId, { callId, callerId, targetId, callerData, status, timestamp, timeoutId }>
 const activeCalls = new Map();
 
+const sendFcmMessage = async (targetUserId, payloadData) => {
+  try {
+    const userRes = await db.execute({
+      sql: 'SELECT fcm_token FROM users WHERE id = ?',
+      args: [targetUserId]
+    });
+    const fcmToken = userRes.rows[0]?.fcm_token;
+    if (fcmToken) {
+      await getMessaging().send({
+        data: payloadData,
+        android: { priority: 'high' },
+        token: fcmToken
+      });
+      return true;
+    }
+  } catch (err) {
+    console.error(`[Signaling Server Log] Error sending push notification:`, err);
+  }
+  return false;
+};
+
 io.on('connection', (socket) => {
   
   const logSignal = (event, direction, callId, extra = '') => {
@@ -483,26 +504,6 @@ io.on('connection', (socket) => {
     // Notify caller that call was registered
     socket.emit('call-initiated', { callId });
 
-    const sendFcmMessage = async (targetUserId, payloadData) => {
-      try {
-        const userRes = await db.execute({
-          sql: 'SELECT fcm_token FROM users WHERE id = ?',
-          args: [targetUserId]
-        });
-        const fcmToken = userRes.rows[0]?.fcm_token;
-        if (fcmToken) {
-          await getMessaging().send({
-            data: payloadData,
-            android: { priority: 'high' },
-            token: fcmToken
-          });
-          return true;
-        }
-      } catch (err) {
-        console.error(`[Signaling Server Log] Error sending push notification:`, err);
-      }
-      return false;
-    };
 
     const targetSocket = onlineUsers.get(targetId);
     if (targetSocket) {
