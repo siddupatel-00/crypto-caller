@@ -250,8 +250,6 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
     }
   };
 
-  };
-
   return (
     <div className="dashboard-layout">
       {/* Welcome Toast Notification */}
