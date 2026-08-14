@@ -185,7 +185,7 @@ app.get('/api/friends/:userId', async (req, res) => {
   try {
     const friendsRes = await db.execute({
       sql: `
-        SELECT u.id, u.username, f.status, f.alias, f.is_buddy, f.created_at 
+        SELECT u.id, u.username, f.status, f.alias, f.is_buddy, f.created_at, f.lifetime_talk_seconds 
         FROM friends f 
         JOIN users u ON f.friend_id = u.id 
         WHERE f.user_id = ? OR (f.friend_id = ? AND f.status = 'pending')
@@ -308,6 +308,14 @@ app.post('/api/history', async (req, res) => {
       sql: 'INSERT INTO call_history (id, caller_id, receiver_id, duration, status) VALUES (?, ?, ?, ?, ?)',
       args: [id, callerId, receiverId, duration, status || 'completed']
     });
+
+    if (duration > 0) {
+      await db.execute({
+        sql: 'UPDATE friends SET lifetime_talk_seconds = lifetime_talk_seconds + ? WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)',
+        args: [duration, callerId, receiverId, receiverId, callerId]
+      });
+    }
+
     res.json({ success: true });
   } catch (err) {
     console.error(err);

@@ -27,9 +27,7 @@ function FriendProfileScreen() {
   };
 
   const getLifetimeTalkTime = () => {
-    const totalSeconds = history
-      .filter(h => h.other_user === friend.username)
-      .reduce((sum, call) => sum + (call.duration || 0), 0);
+    const totalSeconds = friend.lifetime_talk_seconds || 0;
     const hrs = Math.floor(totalSeconds / 3600);
     const mins = Math.floor((totalSeconds % 3600) / 60);
     return `${hrs}h ${mins}m`;

@@ -54,6 +54,7 @@ async function initSchema() {
     try { await db.execute("ALTER TABLE friends ADD COLUMN alias TEXT;"); } catch (e) {}
     try { await db.execute("ALTER TABLE friends ADD COLUMN is_buddy INTEGER DEFAULT 0;"); } catch (e) {}
     try { await db.execute("ALTER TABLE call_history ADD COLUMN status TEXT DEFAULT 'completed';"); } catch (e) {}
+    try { await db.execute("ALTER TABLE friends ADD COLUMN lifetime_talk_seconds INTEGER DEFAULT 0;"); } catch (e) {}
 
     // Add indexes for lightning-fast lookups
     try {

@@ -250,14 +250,6 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
     }
   };
 
-  // Calculate lifetime talk time for a specific friend
-  const getLifetimeTalkTime = (friendId) => {
-    const totalSeconds = history
-      .filter(h => h.other_user === (friends.find(f => f.id === friendId)?.username || ''))
-      .reduce((sum, call) => sum + (call.duration || 0), 0);
-    const hrs = Math.floor(totalSeconds / 3600);
-    const mins = Math.floor((totalSeconds % 3600) / 60);
-    return `${hrs}h ${mins}m`;
   };
 
   return (
