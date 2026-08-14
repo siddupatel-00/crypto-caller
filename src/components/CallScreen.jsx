@@ -151,21 +151,26 @@ export default function CallScreen() {
   const ringTimeout = useStore(state => state.ringTimeout);
   const selectedRingtone = useStore(state => state.selectedRingtone);
 
-  // Auto ring timeout
+  // Auto ring timeout — only during ringing/connecting (waiting for answer)
+  const callStatusRef = useRef(callStatus);
+  useEffect(() => { callStatusRef.current = callStatus; }, [callStatus]);
+
   useEffect(() => {
     if (callStatus === 'ringing' || callStatus === 'connecting') {
       const timer = setTimeout(() => {
+        // Guard: only fire if still waiting (not already negotiating/connected/ended)
+        const current = callStatusRef.current;
+        if (current !== 'ringing' && current !== 'connecting') return;
+
+        sessionStorage.setItem(callSessionKey, 'true');
         if (isIncoming) {
           declineCall('not answered');
         } else {
           endCall('not answered');
         }
         navigate('/dashboard', { replace: true });
-        alert(`Call timed out after ${ringTimeout} seconds.`);
       }, ringTimeout * 1000);
-      return () => {
-        clearTimeout(timer);
-      };
+      return () => clearTimeout(timer);
     }
   }, [callStatus, ringTimeout, isIncoming, declineCall, endCall, navigate]);
 
