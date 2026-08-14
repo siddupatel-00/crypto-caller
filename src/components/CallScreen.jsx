@@ -117,7 +117,7 @@ export default function CallScreen() {
           body: JSON.stringify({ callerId: user.id, receiverId: targetId, duration, status: duration > 0 ? 'completed' : callEndReason })
         }).catch(console.error);
       }
-      setTimeout(() => navigate('/dashboard'), 2000);
+      setTimeout(() => navigate('/dashboard', { replace: true }), 2000);
     }
 
     return () => clearInterval(timerRef.current);
@@ -136,7 +136,7 @@ export default function CallScreen() {
         } else {
           endCall('not answered');
         }
-        navigate('/dashboard');
+        navigate('/dashboard', { replace: true });
         alert(`Call timed out after ${ringTimeout} seconds.`);
       }, ringTimeout * 1000);
       return () => {
@@ -170,6 +170,7 @@ export default function CallScreen() {
   const handleEndCall = () => {
     console.log(`[Signaling Log] End Call button pressed.`);
     endCall();
+    navigate('/dashboard', { replace: true });
   };
   const handleAccept = () => {
     console.log(`[Signaling Log] User B pressed Accept call button.`);
@@ -178,7 +179,7 @@ export default function CallScreen() {
   const handleDecline = () => {
     console.log(`[Signaling Log] User B pressed Decline call button.`);
     declineCall();
-    navigate('/dashboard');
+    navigate('/dashboard', { replace: true });
   };
 
   const showRemoteVideo = callType === 'video' && remoteStream;
