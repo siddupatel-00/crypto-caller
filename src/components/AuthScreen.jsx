@@ -133,18 +133,22 @@ export default function AuthScreen() {
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     clearMessages();
-    if (!email) {
-      setAuthError('Please enter your email address below.');
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setAuthError('Please enter your email address.');
       return;
     }
     setLoading(true);
     try {
-      await sendPasswordResetEmail(auth, email);
-      setAuthSuccess('Password reset link sent to your email!');
-      setTimeout(() => setIsResetting(false), 3000);
+      await sendPasswordResetEmail(auth, cleanEmail);
+      setAuthSuccess('Password reset link sent! Please check your inbox and spam folder.');
     } catch (err) {
       console.error(err);
-      setAuthError(err.message);
+      let msg = err.message;
+      if (err.code === 'auth/user-not-found') msg = 'No account found with this email address.';
+      if (err.code === 'auth/invalid-email') msg = 'Please enter a valid email address.';
+      if (err.code === 'auth/too-many-requests') msg = 'Too many attempts. Please try again in a few minutes.';
+      setAuthError(msg);
     } finally {
       setLoading(false);
     }

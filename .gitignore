@@ -30,3 +30,4 @@ check_users.js
 android/app/google-services.json
 .vercel
 .env*
+test_google_auth.js
