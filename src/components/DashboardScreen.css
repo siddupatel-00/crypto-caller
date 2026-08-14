@@ -314,6 +314,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  width: 100%;
 }
 
 .list-item {
@@ -321,6 +322,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px;
+  width: 100%;
   transition: transform 0.2s;
 }
 
@@ -444,6 +446,40 @@
 .history-type { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-tertiary); }
 .text-success { color: var(--success); }
 .text-primary { color: var(--primary-light); }
+
+.call-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 16px;
+}
+
+.call-icon.incoming {
+  background: rgba(0, 217, 126, 0.1);
+  color: var(--success);
+}
+
+.call-icon.outgoing {
+  background: rgba(108, 99, 255, 0.1);
+  color: var(--primary-light);
+}
+
+.call-icon.missed {
+  background: rgba(255, 71, 87, 0.1);
+  color: var(--danger);
+}
+
+.history-status {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.history-status-missed {
+  color: var(--danger);
+}
 
 .hide-on-mobile {
   display: inline-block;
