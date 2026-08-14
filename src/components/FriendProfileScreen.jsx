@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SERVER_URL } from '../utils/socket';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Star, Trash2, Calendar, Clock } from 'lucide-react';
+import { ChevronLeft, Star, Trash2, Calendar, Clock, Phone, Video } from 'lucide-react';
 import { format } from 'date-fns';
 import useStore from '../store';
 
@@ -21,6 +21,10 @@ function FriendProfileScreen() {
   }, [friend, user, navigate]);
 
   if (!friend) return null;
+
+  const startCall = (type) => {
+    navigate(`/call/${friend.id}?type=${type}`);
+  };
 
   const getLifetimeTalkTime = () => {
     const totalSeconds = history
@@ -98,9 +102,26 @@ function FriendProfileScreen() {
           </div>
           <h2 style={{ textAlign: 'center', marginBottom: '4px', fontSize: '24px' }}>
             {friend.alias || friend.username}
-            {Boolean(friend.is_buddy) && <Star size={20} fill="#FCD34D" color="#FCD34D" style={{ marginLeft: '8px', display: 'inline-block' }} />}
+            {Boolean(friend.is_buddy) && <Star size={20} fill="#FCD34D" color="#FCD34D" style={{ marginLeft: '8px', display: 'inline-block', verticalAlign: 'middle' }} />}
           </h2>
-          {friend.alias && <p style={{ textAlign: 'center', color: '#888', marginBottom: '30px' }}>@{friend.username}</p>}
+          {friend.alias && <p style={{ textAlign: 'center', color: '#888', marginBottom: '16px' }}>@{friend.username}</p>}
+
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: friend.alias ? '0' : '16px', marginBottom: '30px' }}>
+            <button 
+              onClick={() => startCall('audio')}
+              style={{ padding: '10px 24px', borderRadius: '24px', background: 'rgba(0, 217, 126, 0.15)', color: 'var(--success)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500', transition: 'all 0.2s' }}
+            >
+              <Phone size={18} />
+              Audio Call
+            </button>
+            <button 
+              onClick={() => startCall('video')}
+              style={{ padding: '10px 24px', borderRadius: '24px', background: 'rgba(108, 99, 255, 0.15)', color: 'var(--primary-light)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500', transition: 'all 0.2s' }}
+            >
+              <Video size={18} />
+              Video Call
+            </button>
+          </div>
         </div>
 
         <div className="profile-stats" style={{ display: 'flex', justifyContent: 'space-around', margin: '24px 0', background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '12px' }}>
