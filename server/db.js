@@ -55,6 +55,16 @@ async function initSchema() {
     try { await db.execute("ALTER TABLE friends ADD COLUMN is_buddy INTEGER DEFAULT 0;"); } catch (e) {}
     try { await db.execute("ALTER TABLE call_history ADD COLUMN status TEXT DEFAULT 'completed';"); } catch (e) {}
 
+    // Add indexes for lightning-fast lookups
+    try {
+      await db.execute("CREATE INDEX IF NOT EXISTS idx_history_caller ON call_history(caller_id);");
+      await db.execute("CREATE INDEX IF NOT EXISTS idx_history_receiver ON call_history(receiver_id);");
+      await db.execute("CREATE INDEX IF NOT EXISTS idx_friends_user ON friends(user_id);");
+      await db.execute("CREATE INDEX IF NOT EXISTS idx_friends_friend ON friends(friend_id);");
+    } catch (e) {
+      console.error('Error creating indexes:', e);
+    }
+
     console.log('⚡ Turso Database schema initialized successfully');
   } catch (error) {
     console.error('❌ Error initializing Turso schema:', error);

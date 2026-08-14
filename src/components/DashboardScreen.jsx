@@ -26,9 +26,10 @@ export default function DashboardScreen() {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('friends');
-  const [friends, setFriends] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [history, setHistory] = useState([]);
+  // Load from local storage for instant perceived load (SWR pattern)
+  const [friends, setFriends] = useState(() => JSON.parse(localStorage.getItem('cache_friends') || '[]'));
+  const [requests, setRequests] = useState(() => JSON.parse(localStorage.getItem('cache_requests') || '[]'));
+  const [history, setHistory] = useState(() => JSON.parse(localStorage.getItem('cache_history') || '[]'));
   const [historyFilter, setHistoryFilter] = useState('all');
   const [addInput, setAddInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -47,6 +48,8 @@ export default function DashboardScreen() {
       const data = await res.json();
       setFriends(data.friends || []);
       setRequests(data.requests || []);
+      localStorage.setItem('cache_friends', JSON.stringify(data.friends || []));
+      localStorage.setItem('cache_requests', JSON.stringify(data.requests || []));
     } catch (e) {
       console.error(e);
     }
@@ -57,6 +60,7 @@ export default function DashboardScreen() {
       const res = await fetch(`${SERVER_URL}/api/history/${user.id}`);
       const data = await res.json();
       setHistory(data || []);
+      localStorage.setItem('cache_history', JSON.stringify(data || []));
     } catch (e) {
       console.error(e);
     }
