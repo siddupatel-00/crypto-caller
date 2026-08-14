@@ -91,11 +91,17 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
 
   const filteredHistory = React.useMemo(() => {
     return history.filter(call => {
-      if (historyFilter === 'all') return true;
-      if (historyFilter === 'missed') return call.type === 'incoming' && call.status !== 'completed';
-      if (historyFilter === 'incoming') return call.type === 'incoming' && call.status === 'completed';
-      if (historyFilter === 'outgoing') return call.type === 'outgoing';
-      return true;
+      const type = (call.type || '').toLowerCase().trim();
+      const status = (call.status || '').toLowerCase().trim();
+      const filter = (historyFilter || '').toLowerCase().trim();
+
+      if (filter === 'all') return true;
+      if (filter === 'missed') return type === 'incoming' && status !== 'completed';
+      if (filter === 'incoming') return type === 'incoming' && status === 'completed';
+      if (filter === 'outgoing') return type === 'outgoing';
+      
+      // Failsafe: if nothing matches, return false so it doesn't show everything
+      return false;
     });
   }, [history, historyFilter]);
 
