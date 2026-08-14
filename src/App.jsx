@@ -51,13 +51,22 @@ function App() {
     return () => socket.off('incoming-call', handleIncomingCall);
   }, [navigate]);
 
-  // Listen for Deep Links from Android Native Accept Action
+  // Listen for Deep Links from Android Native Accept Action and Hardware Back Button
   useEffect(() => {
     import('@capacitor/app').then(({ App: CapacitorApp }) => {
       CapacitorApp.addListener('appUrlOpen', data => {
         if (data.url.startsWith('callverse://call/')) {
           const url = new URL(data.url);
           navigate(url.pathname + url.search);
+        }
+      });
+      CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+        if (window.location.pathname === '/dashboard' || window.location.pathname === '/') {
+          CapacitorApp.exitApp();
+        } else if (canGoBack) {
+          window.history.back();
+        } else {
+          CapacitorApp.exitApp();
         }
       });
     }).catch(console.error);
