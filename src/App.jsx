@@ -10,7 +10,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { SERVER_URL } from './utils/socket';
 import socket from './utils/socket';
 import usePushNotifications from './hooks/usePushNotifications';
-import './App.css';
+import './App.css'; // Force Vercel Build Trigger
 
 function App() {
   const user = useStore((state) => state.user);
