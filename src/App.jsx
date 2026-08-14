@@ -15,11 +15,17 @@ import './App.css';
 function App() {
   const user = useStore((state) => state.user);
   const setUser = useStore((state) => state.setUser);
+  const theme = useStore((state) => state.theme);
   const [authLoading, setAuthLoading] = useState(true);
 
   // Initialize Push Notifications
   usePushNotifications();
   const navigate = useNavigate();
+
+  // Apply Theme
+  useEffect(() => {
+    document.body.dataset.theme = theme;
+  }, [theme]);
 
   // Connect socket as soon as we have a user — this must happen here (App-level)
   // because deep links can open /call/:targetId directly, skipping DashboardScreen.

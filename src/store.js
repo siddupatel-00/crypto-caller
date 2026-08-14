@@ -3,6 +3,7 @@ import { create } from 'zustand';
 const useStore = create((set) => ({
   user: null,
   fcmToken: null,
+  theme: localStorage.getItem('callverse_theme') || 'dark',
   setFcmToken: (token) => set({ fcmToken: token }),
   ringTimeout: parseInt(localStorage.getItem('ringTimeout') || '30', 10),
   ringtoneEnabled: localStorage.getItem('ringtoneEnabled') !== 'false', // default true
@@ -10,6 +11,10 @@ const useStore = create((set) => ({
   selectedRingtone: localStorage.getItem('selectedRingtone') || 'marimba',
   selectedRingback: localStorage.getItem('selectedRingback') || 'ringback',
   setUser: (user) => set({ user }),
+  setTheme: (theme) => {
+    localStorage.setItem('callverse_theme', theme);
+    set({ theme });
+  },
   setRingTimeout: (timeout) => {
     localStorage.setItem('ringTimeout', timeout.toString());
     set({ ringTimeout: timeout });

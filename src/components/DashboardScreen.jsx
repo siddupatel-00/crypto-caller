@@ -29,6 +29,7 @@ export default function DashboardScreen() {
   const [friends, setFriends] = useState([]);
   const [requests, setRequests] = useState([]);
   const [history, setHistory] = useState([]);
+  const [historyFilter, setHistoryFilter] = useState('all');
   const [addInput, setAddInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [copied, setCopied] = useState(false);
@@ -77,6 +78,16 @@ export default function DashboardScreen() {
       return (f.alias?.toLowerCase().includes(s) || f.username.toLowerCase().includes(s));
     });
   }, [friends, searchQuery]);
+
+  const filteredHistory = React.useMemo(() => {
+    return history.filter(call => {
+      if (historyFilter === 'all') return true;
+      if (historyFilter === 'missed') return call.type === 'incoming' && call.status !== 'completed';
+      if (historyFilter === 'incoming') return call.type === 'incoming' && call.status === 'completed';
+      if (historyFilter === 'outgoing') return call.type === 'outgoing';
+      return true;
+    });
+  }, [history, historyFilter]);
 
   useEffect(() => {
     if (!user) {
@@ -463,15 +474,41 @@ export default function DashboardScreen() {
 
           {activeTab === 'history' && (
             <div className="history-view animate-fadeIn">
-              <h2>Call History (Last 7 Days)</h2>
-              {history.length === 0 ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h2 style={{ marginBottom: 0 }}>Call History</h2>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', overflowX: 'auto', paddingBottom: '8px' }}>
+                {['all', 'missed', 'incoming', 'outgoing'].map(filter => (
+                  <button
+                    key={filter}
+                    onClick={() => setHistoryFilter(filter)}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '20px',
+                      background: historyFilter === filter ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                      color: historyFilter === filter ? '#fff' : 'var(--text-secondary)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      textTransform: 'capitalize',
+                      fontSize: '13px',
+                      fontWeight: '500',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {filter}
+                  </button>
+                ))}
+              </div>
+              
+              {filteredHistory.length === 0 ? (
                 <div className="empty-state">
                   <Clock size={48} />
-                  <p>No call history found.</p>
+                  <p>No {historyFilter !== 'all' ? historyFilter : ''} call history found.</p>
                 </div>
               ) : (
                 <div className="list-container">
-                  {history.map(call => (
+                  {filteredHistory.map(call => (
                     <div key={call.id} className="list-item glass-card history-item">
                       <div className="item-info">
                         <div className={`call-icon ${call.type}`}>
@@ -501,6 +538,27 @@ export default function DashboardScreen() {
             <div className="settings-view animate-fadeIn glass-card" style={{ padding: '32px', maxWidth: '600px', margin: '0 auto' }}>
               <h2 style={{ marginBottom: '24px', fontSize: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '16px' }}>Settings</h2>
               
+              {/* Appearance */}
+              <div className="settings-section" style={{ marginBottom: '32px' }}>
+                <h3 style={{ fontSize: '16px', color: 'var(--primary-light)', marginBottom: '16px' }}>Appearance</h3>
+                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <label style={{ display: 'block', marginBottom: '8px', color: '#fff', fontWeight: '500' }}>App Theme</label>
+                  <p style={{ fontSize: '13px', color: '#888', marginBottom: '12px' }}>Choose your preferred color theme.</p>
+                  <select 
+                    value={useStore(state => state.theme)} 
+                    onChange={(e) => useStore.getState().setTheme(e.target.value)}
+                    style={{
+                      padding: '12px 16px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)',
+                      color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)', width: '100%', outline: 'none'
+                    }}
+                  >
+                    <option value="dark" style={{background: '#111', color: '#fff'}}>Dark Theme (Default)</option>
+                    <option value="light" style={{background: '#fff', color: '#000'}}>Light Theme</option>
+                    <option value="bw" style={{background: '#000', color: '#fff'}}>High Contrast (Black & White)</option>
+                  </select>
+                </div>
+              </div>
+
               {/* Profile & Invite Section */}
               <div className="settings-section" style={{ marginBottom: '32px' }}>
                 <h3 style={{ fontSize: '16px', color: 'var(--primary-light)', marginBottom: '16px' }}>Profile & Invite</h3>
