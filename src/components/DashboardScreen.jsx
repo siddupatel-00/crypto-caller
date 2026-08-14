@@ -98,7 +98,7 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
       if (filter === 'all') return true;
       if (filter === 'missed') return type === 'incoming' && status !== 'completed';
       if (filter === 'incoming') return type === 'incoming' && status === 'completed';
-      if (filter === 'outgoing') return type === 'outgoing';
+      if (filter === 'outgoing') return type === 'outgoing' && status === 'completed';
       
       // Failsafe: if nothing matches, return false so it doesn't show everything
       return false;
