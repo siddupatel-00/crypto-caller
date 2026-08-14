@@ -20,6 +20,7 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
   const setRingTimeout = useStore((state) => state.setRingTimeout);
   const ringtoneEnabled = useStore((state) => state.ringtoneEnabled);
   const setRingtoneEnabled = useStore((state) => state.setRingtoneEnabled);
+  const theme = useStore((state) => state.theme);
   const selectedRingtone = useStore((state) => state.selectedRingtone);
   const setSelectedRingtone = useStore((state) => state.setSelectedRingtone);
   const ringtoneVolume = useStore((state) => state.ringtoneVolume);
@@ -554,7 +555,7 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
                   <label style={{ display: 'block', marginBottom: '8px', color: '#fff', fontWeight: '500' }}>App Theme</label>
                   <p style={{ fontSize: '13px', color: '#888', marginBottom: '12px' }}>Choose your preferred color theme.</p>
                   <select 
-                    value={useStore(state => state.theme)} 
+                    value={theme} 
                     onChange={(e) => useStore.getState().setTheme(e.target.value)}
                     style={{
                       padding: '12px 16px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)',
