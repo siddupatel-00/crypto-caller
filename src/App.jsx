@@ -125,7 +125,19 @@ function App() {
         />
         <Route 
           path="/dashboard" 
-          element={user ? <DashboardScreen /> : <Navigate to="/" />} 
+          element={user ? <DashboardScreen initialTab="friends" /> : <Navigate to="/" />} 
+        />
+        <Route 
+          path="/addfriend" 
+          element={user ? <DashboardScreen initialTab="add-friend" /> : <Navigate to="/" />} 
+        />
+        <Route 
+          path="/settings" 
+          element={user ? <DashboardScreen initialTab="settings" /> : <Navigate to="/" />} 
+        />
+        <Route 
+          path="/history" 
+          element={user ? <DashboardScreen initialTab="history" /> : <Navigate to="/" />} 
         />
         <Route 
           path="/friend/:friendId" 

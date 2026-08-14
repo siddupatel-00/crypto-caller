@@ -12,9 +12,10 @@ import './DashboardScreen.css';
 
 const Ringtone = registerPlugin('Ringtone');
 
-export default function DashboardScreen() {
+export default function DashboardScreen({ initialTab = 'friends' }) {
   const user = useStore((state) => state.user);
   const logout = useStore((state) => state.logout);
+  const navigate = useNavigate();
   const ringTimeout = useStore((state) => state.ringTimeout);
   const setRingTimeout = useStore((state) => state.setRingTimeout);
   const ringtoneEnabled = useStore((state) => state.ringtoneEnabled);
@@ -23,9 +24,13 @@ export default function DashboardScreen() {
   const setSelectedRingtone = useStore((state) => state.setSelectedRingtone);
   const ringtoneVolume = useStore((state) => state.ringtoneVolume);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
-  const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState('friends');
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
   // Load from local storage for instant perceived load (SWR pattern)
   const [friends, setFriends] = useState(() => JSON.parse(localStorage.getItem('cache_friends') || '[]'));
   const [requests, setRequests] = useState(() => JSON.parse(localStorage.getItem('cache_requests') || '[]'));
@@ -309,7 +314,7 @@ export default function DashboardScreen() {
         <nav className="sidebar-nav">
           <button 
             className={`nav-item ${activeTab === 'friends' ? 'active' : ''}`}
-            onClick={() => setActiveTab('friends')}
+            onClick={() => navigate('/dashboard')}
           >
             <Users size={20} />
             Friends
@@ -317,21 +322,21 @@ export default function DashboardScreen() {
           </button>
           <button 
             className={`nav-item ${activeTab === 'add-friend' ? 'active' : ''}`}
-            onClick={() => setActiveTab('add-friend')}
+            onClick={() => navigate('/addfriend')}
           >
             <UserPlus size={20} />
             Add Friend
           </button>
           <button 
             className={`nav-item ${activeTab === 'history' ? 'active' : ''}`}
-            onClick={() => setActiveTab('history')}
+            onClick={() => navigate('/history')}
           >
             <Clock size={20} />
             Call History
           </button>
           <button 
             className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
+            onClick={() => navigate('/settings')}
           >
             <Settings size={20} />
             Settings
