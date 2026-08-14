@@ -29,6 +29,22 @@ export default function CallScreen() {
   const callerName = queryParams.get('callerName') || 'Someone';
   const callId = queryParams.get('callId') || null;
 
+  // Prevent back-navigation from re-initiating an already-ended call
+  const callSessionKey = `call_ended_${targetId}`;
+  const wasAlreadyEnded = useRef(!!sessionStorage.getItem(callSessionKey));
+
+  useEffect(() => {
+    if (wasAlreadyEnded.current) {
+      console.log('[CallScreen] Blocking remount of already-ended call for target:', targetId);
+      navigate('/dashboard', { replace: true });
+    }
+    return () => {
+      // Mark call as ended on unmount; clear after 10s so fresh calls work
+      sessionStorage.setItem(callSessionKey, 'true');
+      setTimeout(() => sessionStorage.removeItem(callSessionKey), 10000);
+    };
+  }, []);
+
   const [duration, setDuration] = useState(0);
   const timerRef = useRef(null);
   const audioRef = useRef(null);
@@ -72,8 +88,13 @@ export default function CallScreen() {
   // Auto-init for outgoing calls, or auto-accept for push notification taps
   const autoAccept = queryParams.get('autoAccept') === 'true';
   const hasAutoAccepted = useRef(false);
+  const hasInitiated = useRef(false);
   useEffect(() => {
-    if (!isIncoming && callStatus === 'idle') {
+    // Block if this call was already ended (back-navigation guard)
+    if (wasAlreadyEnded.current) return;
+
+    if (!isIncoming && callStatus === 'idle' && !hasInitiated.current) {
+      hasInitiated.current = true;
       initCall();
     } else if (isIncoming && autoAccept && callStatus === 'ringing' && !hasAutoAccepted.current) {
       const doAccept = () => {
@@ -117,7 +138,10 @@ export default function CallScreen() {
           body: JSON.stringify({ callerId: user.id, receiverId: targetId, duration, status: duration > 0 ? 'completed' : callEndReason })
         }).catch(console.error);
       }
-      setTimeout(() => navigate('/dashboard', { replace: true }), 2000);
+      setTimeout(() => {
+        sessionStorage.setItem(callSessionKey, 'true');
+        navigate('/dashboard', { replace: true });
+      }, 2000);
     }
 
     return () => clearInterval(timerRef.current);
@@ -169,6 +193,7 @@ export default function CallScreen() {
 
   const handleEndCall = () => {
     console.log(`[Signaling Log] End Call button pressed.`);
+    sessionStorage.setItem(callSessionKey, 'true');
     endCall();
     navigate('/dashboard', { replace: true });
   };
@@ -178,6 +203,7 @@ export default function CallScreen() {
   };
   const handleDecline = () => {
     console.log(`[Signaling Log] User B pressed Decline call button.`);
+    sessionStorage.setItem(callSessionKey, 'true');
     declineCall();
     navigate('/dashboard', { replace: true });
   };

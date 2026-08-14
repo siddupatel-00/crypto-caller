@@ -64,6 +64,7 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
   const remoteVideoRef = useRef(null);
   const localStreamRef = useRef(null);
   const statsIntervalRef = useRef(null);
+  const callEndedRef = useRef(false);
 
   const createPeerConnection = useCallback(() => {
     console.log('[WebRTC Debug] Creating RTCPeerConnection with servers:', ICE_SERVERS);
@@ -229,6 +230,10 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
 
   // Caller initiates call
   const initCall = useCallback(async () => {
+    if (callEndedRef.current) {
+      console.log('[WebRTC Debug] initCall blocked: call already ended.');
+      return;
+    }
     console.log('[WebRTC Debug] Initiating Call...');
     setCallStatus('connecting');
     const stream = await startMedia(initialCallType);
@@ -275,6 +280,10 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
 
   // Target answers call
   const acceptCall = useCallback(async () => {
+    if (callEndedRef.current) {
+      console.log('[WebRTC Debug] acceptCall blocked: call already ended.');
+      return;
+    }
     console.log('[WebRTC Debug] Accepting incoming call...');
     setCallStatus('negotiating');
     const stream = await startMedia(initialCallType);
@@ -454,28 +463,52 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
   }, [facingMode]);
 
   const endCall = useCallback((reason = 'missed') => {
+    // Prevent double-ending and block future re-initiation
+    if (callEndedRef.current) return;
+    callEndedRef.current = true;
+
+    console.log('[WebRTC Debug] endCall called. Reason:', reason);
+
+    // Emit hangup BEFORE clearing callId so server gets the correct ID
+    socket.emit('end-call', { callId: activeCallIdRef.current });
+
     if (statsIntervalRef.current) {
       clearInterval(statsIntervalRef.current);
       statsIntervalRef.current = null;
     }
+
+    // Remove all event handlers to prevent callbacks after close
     if (peerConnection.current) {
+      peerConnection.current.onicecandidate = null;
+      peerConnection.current.ontrack = null;
+      peerConnection.current.oniceconnectionstatechange = null;
+      peerConnection.current.onconnectionstatechange = null;
+      peerConnection.current.onsignalingstatechange = null;
+      peerConnection.current.onicecandidateerror = null;
+      peerConnection.current.onicegatheringstatechange = null;
       peerConnection.current.close();
       peerConnection.current = null;
     }
+
+    // Stop all local media tracks
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(t => t.stop());
       localStreamRef.current = null;
     }
+
     setLocalStream(null);
     setRemoteStream(null);
     setCallEndReason(reason);
     setCallStatus('ended');
-    
+
+    // Clear call identity
+    setActiveCallId(null);
+    activeCallIdRef.current = null;
+
     if (Capacitor.isNativePlatform()) {
+      Ringtone.stopRingtone().catch(e => console.error(e));
       AudioRoute.setCommunicationMode({ enabled: false, isVideoCall: false }).catch(e => console.error(e));
     }
-    
-    socket.emit('end-call', { callId: activeCallIdRef.current });
   }, [targetId]);
 
   useEffect(() => {
@@ -489,11 +522,22 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
     });
     socket.on('call-missed', () => {
       console.log('[WebRTC Debug] Call missed/timed out by server.');
+      callEndedRef.current = true;
       if (Capacitor.isNativePlatform()) {
         Ringtone.stopRingtone().catch(e => console.error(e));
       }
-      if (peerConnection.current) peerConnection.current.close();
-      if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop());
+      if (peerConnection.current) {
+        peerConnection.current.onicecandidate = null;
+        peerConnection.current.ontrack = null;
+        peerConnection.current.oniceconnectionstatechange = null;
+        peerConnection.current.onconnectionstatechange = null;
+        peerConnection.current.close();
+        peerConnection.current = null;
+      }
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(t => t.stop());
+        localStreamRef.current = null;
+      }
       setCallEndReason('missed');
       setCallStatus('ended');
     });
@@ -506,8 +550,19 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
 
     socket.on('call-declined', () => {
       console.log('[WebRTC Debug] Received call-declined event on client.');
-      if (peerConnection.current) peerConnection.current.close();
-      if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop());
+      callEndedRef.current = true;
+      if (peerConnection.current) {
+        peerConnection.current.onicecandidate = null;
+        peerConnection.current.ontrack = null;
+        peerConnection.current.oniceconnectionstatechange = null;
+        peerConnection.current.onconnectionstatechange = null;
+        peerConnection.current.close();
+        peerConnection.current = null;
+      }
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(t => t.stop());
+        localStreamRef.current = null;
+      }
       setCallEndReason('declined');
       setCallStatus('ended');
       alert('Call was declined or user is busy.');
@@ -515,8 +570,19 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
 
     socket.on('call-failed', (data) => {
       console.warn('[WebRTC Debug] Received call-failed event on client:', data.reason);
-      if (peerConnection.current) peerConnection.current.close();
-      if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop());
+      callEndedRef.current = true;
+      if (peerConnection.current) {
+        peerConnection.current.onicecandidate = null;
+        peerConnection.current.ontrack = null;
+        peerConnection.current.oniceconnectionstatechange = null;
+        peerConnection.current.onconnectionstatechange = null;
+        peerConnection.current.close();
+        peerConnection.current = null;
+      }
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(t => t.stop());
+        localStreamRef.current = null;
+      }
       setCallEndReason('missed');
       setCallStatus('ended');
       alert(data.reason || 'Call failed');
@@ -541,12 +607,23 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
     
     socket.on('call-ended', () => {
       console.log('[WebRTC Debug] Received call-ended event on client.');
+      callEndedRef.current = true;
       if (Capacitor.isNativePlatform()) {
         Ringtone.stopRingtone().catch(e => console.error(e));
         AudioRoute.setCommunicationMode({ enabled: false, isVideoCall: false }).catch(e => console.error(e));
       }
-      if (peerConnection.current) peerConnection.current.close();
-      if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop());
+      if (peerConnection.current) {
+        peerConnection.current.onicecandidate = null;
+        peerConnection.current.ontrack = null;
+        peerConnection.current.oniceconnectionstatechange = null;
+        peerConnection.current.onconnectionstatechange = null;
+        peerConnection.current.close();
+        peerConnection.current = null;
+      }
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(t => t.stop());
+        localStreamRef.current = null;
+      }
       setCallEndReason(prev => prev === 'completed' ? 'missed' : prev);
       setCallStatus('ended');
     });
@@ -561,13 +638,36 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
       socket.off('call-ended');
       socket.off('call-initiated');
       socket.off('call-missed');
-      
-      // Ensure camera/mic is turned off when leaving the screen
+
+      // Emit definitive hangup if not already ended
+      if (!callEndedRef.current) {
+        callEndedRef.current = true;
+        socket.emit('end-call', { callId: activeCallIdRef.current });
+      }
+
+      // Stop all local media tracks
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(t => t.stop());
+        localStreamRef.current = null;
       }
+
+      // Null all event handlers and close peer connection
       if (peerConnection.current) {
+        peerConnection.current.onicecandidate = null;
+        peerConnection.current.ontrack = null;
+        peerConnection.current.oniceconnectionstatechange = null;
+        peerConnection.current.onconnectionstatechange = null;
+        peerConnection.current.onsignalingstatechange = null;
+        peerConnection.current.onicecandidateerror = null;
+        peerConnection.current.onicegatheringstatechange = null;
         peerConnection.current.close();
+        peerConnection.current = null;
+      }
+
+      // Clear stats interval
+      if (statsIntervalRef.current) {
+        clearInterval(statsIntervalRef.current);
+        statsIntervalRef.current = null;
       }
     };
   }, [targetId, user, proceedWithOffer, handleOffer, handleAnswer, handleICECandidate]);

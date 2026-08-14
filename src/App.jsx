@@ -67,7 +67,10 @@ function App() {
         }
       });
       CapacitorApp.addListener('backButton', ({ canGoBack }) => {
-        if (window.location.pathname === '/dashboard' || window.location.pathname === '/') {
+        if (window.location.pathname.startsWith('/call/')) {
+          // Never go back to a call screen — always exit to dashboard
+          navigate('/dashboard', { replace: true });
+        } else if (window.location.pathname === '/dashboard' || window.location.pathname === '/') {
           CapacitorApp.exitApp();
         } else if (canGoBack) {
           window.history.back();
