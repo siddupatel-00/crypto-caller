@@ -123,7 +123,10 @@ export default function AuthScreen() {
       if (err.code !== 'auth/popup-closed-by-user') {
         setAuthError(err.message);
       }
-      setLoading(false);
+    } finally {
+      if (!Capacitor.isNativePlatform()) {
+        setLoading(false);
+      }
     }
   };
 

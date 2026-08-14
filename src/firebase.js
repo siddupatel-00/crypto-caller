@@ -6,6 +6,8 @@ import {
   signOut, 
   sendPasswordResetEmail,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider
 } from 'firebase/auth';
 
@@ -31,5 +33,7 @@ export {
   signOut, 
   sendPasswordResetEmail,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   googleProvider
 };
