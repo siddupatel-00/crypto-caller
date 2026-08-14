@@ -109,24 +109,21 @@ export default function AuthScreen() {
     clearMessages();
     setLoading(true);
     try {
-      if (Capacitor.isNativePlatform()) {
-        // Use redirect method for native Android/iOS
-        await signInWithRedirect(auth, googleProvider);
-        // Execution will stop here as the page redirects.
-      } else {
-        // Use popup for standard Web
-        const result = await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      if (result && result.user) {
         await syncWithBackend(result.user);
       }
     } catch (err) {
       console.error(err);
       if (err.code !== 'auth/popup-closed-by-user') {
-        setAuthError(err.message);
+        let msg = err.message;
+        if (err.code === 'auth/unauthorized-domain') {
+          msg = 'Domain not authorized. Please ensure localhost is added to Firebase Console Authorized Domains.';
+        }
+        setAuthError(msg);
       }
     } finally {
-      if (!Capacitor.isNativePlatform()) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
