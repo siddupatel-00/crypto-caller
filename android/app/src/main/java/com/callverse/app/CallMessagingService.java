@@ -51,6 +51,12 @@ public class CallMessagingService extends FirebaseMessagingService {
         String callerName = data.get("callerName");
         String callType = data.get("callType");
 
+        SharedPreferences prefs = getSharedPreferences("CallversePrefs", Context.MODE_PRIVATE);
+        String activeUserId = prefs.getString("active_user_id", null);
+        if (callerId != null && activeUserId != null && callerId.equals(activeUserId)) {
+            return;
+        }
+
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         String channelId = "calls";
 
@@ -97,7 +103,6 @@ public class CallMessagingService extends FirebaseMessagingService {
         notificationManager.notify(notifId, builder.build());
 
         // Play Ringtone
-        SharedPreferences prefs = getSharedPreferences("CallversePrefs", Context.MODE_PRIVATE);
         String customUri = prefs.getString("custom_ringtone_uri", null);
         Uri ringtoneUri = customUri != null ? Uri.parse(customUri) : RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
 

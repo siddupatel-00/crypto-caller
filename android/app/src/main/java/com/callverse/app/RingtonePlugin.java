@@ -20,6 +20,15 @@ public class RingtonePlugin extends Plugin {
 
     private static final String PREF_NAME = "CallversePrefs";
     private static final String KEY_RINGTONE_URI = "custom_ringtone_uri";
+    private static final String KEY_ACTIVE_USER_ID = "active_user_id";
+
+    @PluginMethod
+    public void setCurrentUser(PluginCall call) {
+        String userId = call.getString("userId");
+        SharedPreferences prefs = getContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putString(KEY_ACTIVE_USER_ID, userId).apply();
+        call.resolve();
+    }
 
     @PluginMethod
     public void pickRingtone(PluginCall call) {

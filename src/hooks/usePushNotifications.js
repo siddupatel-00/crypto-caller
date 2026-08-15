@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PushNotifications } from '@capacitor/push-notifications';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import useStore from '../store';
 import socket from '../utils/socket';
+
+const Ringtone = registerPlugin('Ringtone');
 
 export default function usePushNotifications() {
   const user = useStore(state => state.user);
@@ -11,6 +13,9 @@ export default function usePushNotifications() {
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
+      if (user?.id) {
+        Ringtone.setCurrentUser({ userId: user.id }).catch(console.error);
+      }
       registerPush();
     }
   }, [user]);
@@ -41,7 +46,11 @@ export default function usePushNotifications() {
     PushNotifications.addListener('registration', (token) => {
       console.log('FCM Push registration success, token: ' + token.value);
       useStore.getState().setFcmToken(token.value);
-      if (socket.connected && useStore.getState().user) {
+      const currentUser = useStore.getState().user;
+      if (currentUser?.id && Capacitor.isNativePlatform()) {
+        Ringtone.setCurrentUser({ userId: currentUser.id }).catch(console.error);
+      }
+      if (socket.connected && currentUser) {
         socket.emit('update-fcm-token', token.value);
       }
     });
@@ -53,12 +62,22 @@ export default function usePushNotifications() {
     PushNotifications.addListener('pushNotificationReceived', (notification) => {
       // Notification received while app is in foreground — suppress it.
       // The DashboardScreen's incoming-call socket listener handles in-app calls.
+      const currentUserId = useStore.getState().user?.id;
+      if (notification?.data?.callerId && currentUserId && notification.data.callerId === currentUserId) {
+        console.log('Ignoring push notification from self');
+        return;
+      }
       console.log('Push received in foreground (suppressed): ', notification);
     });
 
     PushNotifications.addListener('pushNotificationActionPerformed', async (notification) => {
       console.log('Push action performed: ', notification);
       const data = notification.notification.data;
+      const currentUserId = useStore.getState().user?.id;
+      if (data?.callerId && currentUserId && data.callerId === currentUserId) {
+        console.log('Ignoring push action from self');
+        return;
+      }
 
       if (data && data.action === 'incoming_call' && data.callId) {
         // User tapped the notification — navigate to the call screen

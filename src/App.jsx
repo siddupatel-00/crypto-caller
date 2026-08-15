@@ -10,7 +10,10 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { SERVER_URL } from './utils/socket';
 import socket from './utils/socket';
 import usePushNotifications from './hooks/usePushNotifications';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import './App.css'; // Force Vercel Build Trigger
+
+const Ringtone = registerPlugin('Ringtone');
 
 function App() {
   const user = useStore((state) => state.user);
@@ -31,6 +34,9 @@ function App() {
   // because deep links can open /call/:targetId directly, skipping DashboardScreen.
   useEffect(() => {
     if (user) {
+      if (Capacitor.isNativePlatform()) {
+        Ringtone.setCurrentUser({ userId: user.id }).catch(console.error);
+      }
       socket._callverseUserId = user.id;
       socket._callverseFcmToken = useStore.getState().fcmToken;
       if (!socket.connected) {
@@ -47,6 +53,10 @@ function App() {
   useEffect(() => {
     const handleIncomingCall = (data) => {
       console.log('[App] Global incoming-call received:', data);
+      if (data?.callerId && user?.id && data.callerId === user.id) {
+        console.log('[App] Ignoring self incoming-call');
+        return;
+      }
       // Only navigate if we aren't already on the call screen for this caller.
       // This prevents overwriting the autoAccept=true parameter from the native deep link.
       if (!window.location.pathname.startsWith(`/call/${data.callerId}`)) {
@@ -55,7 +65,7 @@ function App() {
     };
     socket.on('incoming-call', handleIncomingCall);
     return () => socket.off('incoming-call', handleIncomingCall);
-  }, [navigate]);
+  }, [navigate, user]);
 
   // Listen for Deep Links from Android Native Accept Action and Hardware Back Button
   useEffect(() => {

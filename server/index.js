@@ -433,6 +433,10 @@ io.on('connection', (socket) => {
       if (fcmToken) {
         try {
           await db.execute({
+            sql: 'UPDATE users SET fcm_token = NULL WHERE fcm_token = ? AND id != ?',
+            args: [fcmToken, userId]
+          });
+          await db.execute({
             sql: 'UPDATE users SET fcm_token = ? WHERE id = ?',
             args: [fcmToken, userId]
           });
@@ -463,6 +467,10 @@ io.on('connection', (socket) => {
     if (userId && fcmToken) {
       try {
         await db.execute({
+          sql: 'UPDATE users SET fcm_token = NULL WHERE fcm_token = ? AND id != ?',
+          args: [fcmToken, userId]
+        });
+        await db.execute({
           sql: 'UPDATE users SET fcm_token = ? WHERE id = ?',
           args: [fcmToken, userId]
         });
@@ -478,6 +486,11 @@ io.on('connection', (socket) => {
     const callerId = socketToUser.get(socket.id);
     const callId = payload?.callId || uuidv4();
     logSignal('call-request', 'RECV', callId, `target: ${targetId} | type: ${callerData?.type}`);
+    
+    if (callerId && targetId && callerId === targetId) {
+      socket.emit('call-failed', { callId, reason: 'Cannot call yourself' });
+      return;
+    }
     
     // Check if caller or receiver is currently in an active ringing or accepted call
     for (const [existingCallId, call] of activeCalls.entries()) {
