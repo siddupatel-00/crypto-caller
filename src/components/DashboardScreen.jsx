@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SERVER_URL } from '../utils/socket';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, Clock, Users, Phone, LogOut, Check, X, Copy, Sparkles, Smile, Settings, Video, Star, Trash2, Edit2, Calendar, RotateCw, Sun, Moon, Palette } from 'lucide-react';
+import { UserPlus, Clock, Users, Phone, LogOut, Check, X, Copy, Sparkles, Smile, Settings, Video, Star, Trash2, Edit2, Calendar, RotateCw, Sun, Moon, Palette, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import useStore from '../store';
 import socket from '../utils/socket';
@@ -54,6 +54,18 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
   // Welcome States
   const [showWelcomePopup, setShowWelcomePopup] = useState(false);
   const [welcomeToast, setWelcomeToast] = useState('');
+
+  // Profile Modal State
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileStats, setProfileStats] = useState(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState('');
+
+  // Username Update State (Settings)
+  const [newUsername, setNewUsername] = useState('');
+  const [isUpdatingUsername, setIsUpdatingUsername] = useState(false);
+  const [usernameError, setUsernameError] = useState('');
+  const [usernameSuccess, setUsernameSuccess] = useState('');
 
   // Friend Profile Modal
   const [editAlias, setEditAlias] = useState('');
@@ -224,50 +236,106 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
     }
   };
 
-  const updateAlias = async () => {
-    if (!selectedFriend) return;
+  const formatJoinedDate = (createdAt) => {
+    if (!createdAt) return 'Joined recently';
     try {
-      await fetch(`${SERVER_URL}/api/friends/alias`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, friendId: selectedFriend.id, alias: editAlias }),
-      });
-      setSelectedFriend(prev => ({ ...prev, alias: editAlias }));
-      fetchFriends();
+      let date;
+      if (typeof createdAt === 'number' || (!isNaN(Number(createdAt)) && !isNaN(parseFloat(createdAt)))) {
+        const num = Number(createdAt);
+        date = num < 1e11 ? new Date(num * 1000) : new Date(num);
+      } else {
+        date = new Date(createdAt);
+      }
+      if (isNaN(date.getTime())) return 'Joined recently';
+      return `Joined ${format(date, 'MMMM d, yyyy')}`;
     } catch (e) {
-      console.error(e);
+      return 'Joined recently';
     }
   };
 
-  const toggleBuddy = async () => {
-    if (!selectedFriend) return;
-    const newBuddyStatus = !selectedFriend.is_buddy;
+  const formatTalkTime = (totalSeconds = 0) => {
+    const s = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+    if (s < 60) return `${s}s`;
+    const hrs = Math.floor(s / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+    if (hrs > 0) {
+      return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+    }
+    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  };
+
+  const fetchProfileStats = async () => {
+    if (!user?.id) return;
+    setIsProfileLoading(true);
+    setProfileError('');
     try {
-      await fetch(`${SERVER_URL}/api/friends/buddy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, friendId: selectedFriend.id, isBuddy: newBuddyStatus }),
-      });
-      setSelectedFriend(prev => ({ ...prev, is_buddy: newBuddyStatus }));
-      fetchFriends();
-    } catch (e) {
-      console.error(e);
+      const res = await fetch(`${SERVER_URL}/api/user/profile/${user.id}`);
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setProfileError(data.error || 'Failed to load profile stats');
+      } else {
+        setProfileStats(data);
+      }
+    } catch (err) {
+      console.error('Error fetching profile stats:', err);
+      setProfileError('Failed to connect to server');
+    } finally {
+      setIsProfileLoading(false);
     }
   };
 
-  const removeFriend = async () => {
-    if (!selectedFriend) return;
-    if (!window.confirm(`Are you sure you want to remove ${selectedFriend.alias || selectedFriend.username}?`)) return;
+  const openProfileModal = () => {
+    setShowProfileModal(true);
+    fetchProfileStats();
+  };
+
+  const handleUpdateUsername = async (e) => {
+    e.preventDefault();
+    const formatted = newUsername.trim().toLowerCase();
+    const usernameRegex = /^[a-z0-9_.]{3,30}$/;
+
+    if (!formatted) {
+      setUsernameError('Please enter a username');
+      return;
+    }
+    if (!usernameRegex.test(formatted)) {
+      setUsernameError('Username must be 3-30 characters (letters, numbers, ., _)');
+      return;
+    }
+    if (formatted === user?.username) {
+      setUsernameError('New username is the same as current username');
+      return;
+    }
+
+    setIsUpdatingUsername(true);
+    setUsernameError('');
+    setUsernameSuccess('');
+
     try {
-      await fetch(`${SERVER_URL}/api/friends`, {
-        method: 'DELETE',
+      const res = await fetch(`${SERVER_URL}/api/user/update-username`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, friendId: selectedFriend.id }),
+        body: JSON.stringify({ userId: user.id, newUsername: formatted }),
       });
-      setSelectedFriend(null);
-      fetchFriends();
-    } catch (e) {
-      console.error(e);
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setUsernameError(data.error || 'Failed to update username');
+      } else {
+        const updatedUser = { ...user, username: data.username };
+        useStore.getState().setUser(updatedUser);
+        localStorage.setItem('callverse_user', JSON.stringify(updatedUser));
+        setUsernameSuccess(`Username updated to @${data.username}!`);
+        setNewUsername('');
+        if (showProfileModal) {
+          fetchProfileStats();
+        }
+      }
+    } catch (err) {
+      console.error('Error updating username:', err);
+      setUsernameError('Network error. Please try again.');
+    } finally {
+      setIsUpdatingUsername(false);
     }
   };
 
@@ -375,14 +443,142 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
         </div>
       )}
 
+      {/* Profile Details Modal */}
+      {showProfileModal && (
+        <div className="profile-modal-overlay" onClick={() => setShowProfileModal(false)}>
+          <div className="profile-modal-content glass-card animate-scaleUp" onClick={(e) => e.stopPropagation()}>
+            <button 
+              className="profile-modal-close" 
+              onClick={() => setShowProfileModal(false)}
+              aria-label="Close profile modal"
+            >
+              <X size={20} />
+            </button>
+
+            {isProfileLoading ? (
+              <div className="profile-modal-loading">
+                <RotateCw size={32} className="ptr-spinning" />
+                <p>Loading profile stats...</p>
+              </div>
+            ) : profileError ? (
+              <div className="profile-modal-error">
+                <AlertCircle size={32} color="var(--danger)" />
+                <p>{profileError}</p>
+                <button className="home-btn home-btn--primary" onClick={fetchProfileStats} style={{ marginTop: '12px', padding: '10px 20px' }}>
+                  Try Again
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="profile-modal-header">
+                  <div className="profile-modal-avatar">
+                    {(profileStats?.username || user?.username || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <h2 className="profile-modal-username">@{profileStats?.username || user?.username}</h2>
+                  <div className="profile-modal-joined">
+                    <Calendar size={14} />
+                    <span>{formatJoinedDate(profileStats?.created_at || user?.created_at)}</span>
+                  </div>
+                </div>
+
+                <div className="profile-stats-grid">
+                  <div className="profile-stat-card">
+                    <div className="profile-stat-icon friends-stat">
+                      <Users size={18} />
+                    </div>
+                    <div className="profile-stat-value">{profileStats?.friends_count ?? friends.length}</div>
+                    <div className="profile-stat-label">Friends</div>
+                  </div>
+
+                  <div className="profile-stat-card">
+                    <div className="profile-stat-icon talktime-stat">
+                      <Clock size={18} />
+                    </div>
+                    <div className="profile-stat-value">{formatTalkTime(profileStats?.total_talk_time || 0)}</div>
+                    <div className="profile-stat-label">Talk Time</div>
+                  </div>
+
+                  <div className="profile-stat-card">
+                    <div className="profile-stat-icon calls-stat">
+                      <Phone size={18} />
+                    </div>
+                    <div className="profile-stat-value">{profileStats?.total_calls ?? 0}</div>
+                    <div className="profile-stat-label">Total Calls</div>
+                  </div>
+                </div>
+
+                <div className="profile-top-friends-section">
+                  <div className="profile-section-title">
+                    <Sparkles size={16} className="text-primary" />
+                    <span>Top 3 Most Talked With</span>
+                  </div>
+
+                  {profileStats?.top_friends && profileStats.top_friends.length > 0 ? (
+                    <div className="top-friends-list">
+                      {profileStats.top_friends.map((friend, idx) => (
+                        <div key={friend.id || idx} className="top-friend-item">
+                          <div className="top-friend-rank">#{idx + 1}</div>
+                          <div className="user-avatar small">
+                            {(friend.alias || friend.username || '?').charAt(0).toUpperCase()}
+                          </div>
+                          <div className="top-friend-info">
+                            <span className="top-friend-name">{friend.alias || friend.username}</span>
+                            {friend.alias && <span className="top-friend-username">@{friend.username}</span>}
+                          </div>
+                          <div className="top-friend-badge">
+                            <Clock size={12} />
+                            <span>{formatTalkTime(friend.lifetime_talk_seconds || 0)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="top-friends-empty">
+                      <Phone size={24} />
+                      <p>No call history yet</p>
+                      <span>Start calling your friends to build stats!</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="profile-modal-actions">
+                  <button 
+                    className="profile-modal-btn profile-modal-btn-change"
+                    onClick={() => {
+                      setShowProfileModal(false);
+                      navigate('/settings');
+                    }}
+                  >
+                    <Edit2 size={16} />
+                    Change Username
+                  </button>
+                  <button 
+                    className="profile-modal-btn profile-modal-btn-close"
+                    onClick={() => setShowProfileModal(false)}
+                  >
+                    Close
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Sidebar */}
       <aside className="sidebar glass">
         <div className="sidebar-header">
-          <div className="user-profile">
+          <div 
+            className="user-profile" 
+            onClick={openProfileModal} 
+            role="button" 
+            tabIndex={0}
+            title="Click to view profile & stats"
+          >
             <div className="user-avatar">{user?.username?.charAt(0).toUpperCase()}</div>
             <div className="user-info">
               <h3>{user?.username}</h3>
-              <span className="user-status">Online</span>
+              <span className="user-status">Online • View Stats</span>
             </div>
           </div>
         </div>
@@ -696,6 +892,124 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
             <div className="settings-view animate-fadeIn glass-card" style={{ padding: '32px', maxWidth: '600px', margin: '0 auto' }}>
               <h2 style={{ marginBottom: '24px', fontSize: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>Settings</h2>
               
+              {/* Account & Username Section */}
+              <div className="settings-section" style={{ marginBottom: '32px' }}>
+                <h3 style={{ fontSize: '16px', color: 'var(--primary-light)', marginBottom: '16px' }}>Account & Username</h3>
+                <div style={{ background: 'var(--card-inner-bg)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', marginBottom: '6px', color: 'var(--text-secondary)', fontSize: '13px' }}>Current Username</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px', fontWeight: '600', color: 'var(--text-primary)' }}>
+                      <span style={{ color: 'var(--primary-light)' }}>@</span>{user?.username}
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleUpdateUsername} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div>
+                      <label htmlFor="settings-new-username" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-primary)', fontWeight: '500', fontSize: '14px' }}>
+                        Change Username
+                      </label>
+                      <input 
+                        id="settings-new-username"
+                        type="text" 
+                        placeholder="Enter new username..." 
+                        value={newUsername}
+                        onChange={(e) => {
+                          const sanitized = e.target.value.toLowerCase().replace(/\s+/g, '');
+                          setNewUsername(sanitized);
+                          if (usernameError) setUsernameError('');
+                          if (usernameSuccess) setUsernameSuccess('');
+                        }}
+                        maxLength={30}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          borderRadius: '12px',
+                          background: 'var(--input-bg)',
+                          border: `1px solid ${usernameError ? 'var(--danger)' : usernameSuccess ? 'var(--success)' : 'var(--border)'}`,
+                          color: 'var(--text-primary)',
+                          fontSize: '15px',
+                          outline: 'none',
+                          transition: 'border-color 0.2s ease'
+                        }}
+                      />
+                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: '1.4' }}>
+                        3-30 characters. Lowercase letters, numbers, dots (.), and underscores (_) only.
+                      </p>
+                    </div>
+
+                    {usernameError && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        color: '#ef4444',
+                        fontSize: '13px'
+                      }}>
+                        <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                        <span>{usernameError}</span>
+                      </div>
+                    )}
+
+                    {usernameSuccess && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        background: 'rgba(0, 217, 126, 0.1)',
+                        border: '1px solid rgba(0, 217, 126, 0.3)',
+                        color: 'var(--success)',
+                        fontSize: '13px'
+                      }}>
+                        <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+                        <span>{usernameSuccess}</span>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={isUpdatingUsername || !newUsername.trim() || newUsername.trim() === user?.username}
+                      className="home-btn home-btn--primary"
+                      style={{
+                        marginTop: '6px',
+                        padding: '12px 20px',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        justifyContent: 'center',
+                        background: (isUpdatingUsername || !newUsername.trim() || newUsername.trim() === user?.username)
+                          ? 'var(--btn-disabled-bg)'
+                          : 'var(--primary)',
+                        color: (isUpdatingUsername || !newUsername.trim() || newUsername.trim() === user?.username)
+                          ? 'var(--btn-disabled-text)'
+                          : '#ffffff',
+                        cursor: (isUpdatingUsername || !newUsername.trim() || newUsername.trim() === user?.username)
+                          ? 'not-allowed'
+                          : 'pointer',
+                        opacity: 1,
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {isUpdatingUsername ? (
+                        <>
+                          <RotateCw size={16} className="ptr-spinning" />
+                          <span>Updating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check size={16} />
+                          <span>Update Username</span>
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </div>
+              </div>
+
               {/* Appearance */}
               <div className="settings-section" style={{ marginBottom: '32px' }}>
                 <h3 style={{ fontSize: '16px', color: 'var(--primary-light)', marginBottom: '16px' }}>Appearance</h3>

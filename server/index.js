@@ -113,6 +113,107 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// Get User Profile Stats
+app.get('/api/user/profile/:userId', async (req, res) => {
+  const { userId } = req.params;
+  if (!userId) return res.status(400).json({ error: 'User ID required' });
+
+  try {
+    const userRes = await db.execute({
+      sql: 'SELECT id, username, created_at FROM users WHERE id = ?',
+      args: [userId]
+    });
+    const user = userRes.rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Friends count
+    const friendsCountRes = await db.execute({
+      sql: "SELECT COUNT(*) as count FROM friends WHERE user_id = ? AND status = 'accepted'",
+      args: [userId]
+    });
+    const friends_count = Number(friendsCountRes.rows[0]?.count || 0);
+
+    // Total calls count
+    const callsCountRes = await db.execute({
+      sql: 'SELECT COUNT(*) as count FROM call_history WHERE caller_id = ? OR receiver_id = ?',
+      args: [userId, userId]
+    });
+    const total_calls = Number(callsCountRes.rows[0]?.count || 0);
+
+    // Total talk time in seconds
+    const talkTimeRes = await db.execute({
+      sql: "SELECT COALESCE(SUM(duration), 0) as total_seconds FROM call_history WHERE (caller_id = ? OR receiver_id = ?) AND status = 'completed'",
+      args: [userId, userId]
+    });
+    const total_talk_time = Number(talkTimeRes.rows[0]?.total_seconds || 0);
+
+    // Top 3 most talked with friends
+    const topFriendsRes = await db.execute({
+      sql: `
+        SELECT u.id, u.username, f.alias, f.lifetime_talk_seconds 
+        FROM friends f 
+        JOIN users u ON f.friend_id = u.id 
+        WHERE f.user_id = ? AND f.status = 'accepted' 
+        ORDER BY f.lifetime_talk_seconds DESC 
+        LIMIT 3
+      `,
+      args: [userId]
+    });
+    const top_friends = topFriendsRes.rows || [];
+
+    res.json({
+      id: user.id,
+      username: user.username,
+      created_at: user.created_at,
+      friends_count,
+      total_calls,
+      total_talk_time,
+      top_friends
+    });
+  } catch (err) {
+    console.error('Error fetching user profile stats:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// Update Username
+app.post('/api/user/update-username', async (req, res) => {
+  const { userId, newUsername } = req.body;
+  if (!userId || !newUsername) {
+    return res.status(400).json({ error: 'User ID and new username are required' });
+  }
+
+  const formattedUsername = newUsername.trim().toLowerCase();
+  const usernameRegex = /^[a-z0-9_.]{3,30}$/;
+
+  if (!usernameRegex.test(formattedUsername)) {
+    return res.status(400).json({
+      error: 'Username must be 3-30 characters long and contain only lowercase letters, numbers, dots, or underscores'
+    });
+  }
+
+  try {
+    const existing = await db.execute({
+      sql: 'SELECT id FROM users WHERE username = ? AND id != ?',
+      args: [formattedUsername, userId]
+    });
+
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'Username is already taken' });
+    }
+
+    await db.execute({
+      sql: 'UPDATE users SET username = ? WHERE id = ?',
+      args: [formattedUsername, userId]
+    });
+
+    res.json({ success: true, username: formattedUsername });
+  } catch (err) {
+    console.error('Error updating username:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 // Add friend by username or invite code
 app.post('/api/friends/request', async (req, res) => {
   const { userId, target } = req.body; // target is username or invite code
