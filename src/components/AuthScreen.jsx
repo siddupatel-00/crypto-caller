@@ -3,16 +3,16 @@ import { SERVER_URL } from '../utils/socket';
 import { Phone, Mail, Lock, User, Globe } from 'lucide-react';
 import useStore from '../store';
 import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import { 
   auth, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   sendPasswordResetEmail,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   googleProvider 
 } from '../firebase';
+import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import './AuthScreen.css';
 
 export default function AuthScreen() {
@@ -38,8 +38,8 @@ export default function AuthScreen() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          id: firebaseUser.uid, 
-          username: chosenUsername || firebaseUser.displayName || '',
+          id: firebaseUser.uid || firebaseUser.id, 
+          username: chosenUsername || firebaseUser.displayName || firebaseUser.name || '',
           email: firebaseUser.email 
         }),
       });
@@ -54,25 +54,6 @@ export default function AuthScreen() {
       setAuthError('Could not sync user with backend server.');
     }
   };
-
-  // Check for Google Auth redirect result on component mount (for mobile app)
-  React.useEffect(() => {
-    const checkRedirect = async () => {
-      try {
-        setLoading(true);
-        const result = await getRedirectResult(auth);
-        if (result && result.user) {
-          await syncWithBackend(result.user);
-        }
-      } catch (err) {
-        console.error('Redirect auth error:', err);
-        setAuthError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    checkRedirect();
-  }, []);
 
   const handleAuth = async (e) => {
     e.preventDefault();
@@ -109,16 +90,29 @@ export default function AuthScreen() {
     clearMessages();
     setLoading(true);
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      if (result && result.user) {
-        await syncWithBackend(result.user);
+      if (Capacitor.isNativePlatform()) {
+        // Native Google Sign-In via Google Play Services on Android
+        const result = await FirebaseAuthentication.signInWithGoogle();
+        if (result?.credential?.idToken) {
+          const credential = GoogleAuthProvider.credential(result.credential.idToken);
+          const userCredential = await signInWithCredential(auth, credential);
+          await syncWithBackend(userCredential.user);
+        } else if (result?.user) {
+          await syncWithBackend(result.user);
+        }
+      } else {
+        // Standard Web Popup
+        const result = await signInWithPopup(auth, googleProvider);
+        if (result && result.user) {
+          await syncWithBackend(result.user);
+        }
       }
     } catch (err) {
-      console.error(err);
-      if (err.code !== 'auth/popup-closed-by-user') {
-        let msg = err.message;
+      console.error('Google Sign-In error:', err);
+      if (err.code !== 'auth/popup-closed-by-user' && err.message !== 'canceled') {
+        let msg = err.message || 'Google Sign-In failed.';
         if (err.code === 'auth/unauthorized-domain') {
-          msg = 'Domain not authorized. Please ensure localhost is added to Firebase Console Authorized Domains.';
+          msg = 'Domain not authorized. Please ensure your domain is added in Firebase Console.';
         }
         setAuthError(msg);
       }
