@@ -63,7 +63,7 @@ export default function usePushNotifications() {
       if (data && data.action === 'incoming_call' && data.callId) {
         // User tapped the notification — navigate to the call screen
         // No autoAccept: user will answer/decline in the app UI
-        navigate(`/call/${data.callerId}?incoming=true&callId=${data.callId}&type=${data.callType || 'video'}&callerName=${data.callerName || 'Someone'}`);
+        navigate(`/call/${data.callerId}?incoming=true&callId=${data.callId}&type=${data.callType || 'video'}&callerName=${data.callerName || 'Someone'}&t=${Date.now()}`);
       }
     });
   };

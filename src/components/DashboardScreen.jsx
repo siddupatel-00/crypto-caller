@@ -134,7 +134,7 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
     socket.on('incoming-call', (data) => {
       console.log(`[Signaling Log] [User B] Received 'incoming-call' event! data:`, data);
       console.log(`[Signaling Log] [User B] Navigating to Call screen: /call/${data.callerId}?incoming=true...`);
-      navigate(`/call/${data.callerId}?incoming=true&callerName=${data.callerData?.username || 'Someone'}&type=${data.callerData?.type || 'video'}&callId=${data.callId}`);
+      navigate(`/call/${data.callerId}?incoming=true&callerName=${data.callerData?.username || 'Someone'}&type=${data.callerData?.type || 'video'}&callId=${data.callId}&t=${Date.now()}`);
     });
 
     return () => {
@@ -180,7 +180,12 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
   };
 
   const startCall = (friendId, type) => {
-    navigate(`/call/${friendId}?type=${type}`);
+    const t = Date.now();
+    try {
+      sessionStorage.removeItem(`call_ended_${friendId}`);
+      sessionStorage.removeItem(`call_done_${friendId}`);
+    } catch (e) {}
+    navigate(`/call/${friendId}?type=${type}&t=${t}`);
   };
 
   const copyInviteCode = () => {

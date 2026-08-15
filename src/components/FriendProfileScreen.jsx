@@ -23,7 +23,12 @@ function FriendProfileScreen() {
   if (!friend) return null;
 
   const startCall = (type) => {
-    navigate(`/call/${friend.id}?type=${type}`);
+    const t = Date.now();
+    try {
+      sessionStorage.removeItem(`call_ended_${friend.id}`);
+      sessionStorage.removeItem(`call_done_${friend.id}`);
+    } catch (e) {}
+    navigate(`/call/${friend.id}?type=${type}&t=${t}`);
   };
 
   const getLifetimeTalkTime = () => {

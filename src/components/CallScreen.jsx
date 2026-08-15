@@ -30,8 +30,8 @@ export default function CallScreen() {
   const callId = queryParams.get('callId') || null;
 
   // Prevent back-navigation from re-initiating an already-ended call
-  const callSessionKey = `call_ended_${targetId}`;
-  const wasAlreadyEnded = useRef(!!sessionStorage.getItem(callSessionKey));
+  const callLaunchKey = `call_done_${queryParams.get('t') || (targetId + '_' + Date.now())}`;
+  const wasAlreadyEnded = useRef(!!sessionStorage.getItem(callLaunchKey));
 
   useEffect(() => {
     if (wasAlreadyEnded.current) {
@@ -39,9 +39,7 @@ export default function CallScreen() {
       navigate('/dashboard', { replace: true });
     }
     return () => {
-      // Mark call as ended on unmount; clear after 10s so fresh calls work
-      sessionStorage.setItem(callSessionKey, 'true');
-      setTimeout(() => sessionStorage.removeItem(callSessionKey), 10000);
+      sessionStorage.setItem(callLaunchKey, 'true');
     };
   }, []);
 
@@ -139,9 +137,9 @@ export default function CallScreen() {
         }).catch(console.error);
       }
       setTimeout(() => {
-        sessionStorage.setItem(callSessionKey, 'true');
+        sessionStorage.setItem(callLaunchKey, 'true');
         navigate('/dashboard', { replace: true });
-      }, 2000);
+      }, 300);
     }
 
     return () => clearInterval(timerRef.current);
@@ -162,7 +160,7 @@ export default function CallScreen() {
         const current = callStatusRef.current;
         if (current !== 'ringing' && current !== 'connecting') return;
 
-        sessionStorage.setItem(callSessionKey, 'true');
+        sessionStorage.setItem(callLaunchKey, 'true');
         if (isIncoming) {
           declineCall('not answered');
         } else {
@@ -198,7 +196,7 @@ export default function CallScreen() {
 
   const handleEndCall = () => {
     console.log(`[Signaling Log] End Call button pressed.`);
-    sessionStorage.setItem(callSessionKey, 'true');
+    sessionStorage.setItem(callLaunchKey, 'true');
     endCall();
     navigate('/dashboard', { replace: true });
   };
@@ -208,7 +206,7 @@ export default function CallScreen() {
   };
   const handleDecline = () => {
     console.log(`[Signaling Log] User B pressed Decline call button.`);
-    sessionStorage.setItem(callSessionKey, 'true');
+    sessionStorage.setItem(callLaunchKey, 'true');
     declineCall();
     navigate('/dashboard', { replace: true });
   };
