@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { SERVER_URL } from '../utils/socket';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, Clock, Users, Phone, LogOut, Check, X, Copy, Sparkles, Smile, Settings, Video, Star, Trash2, Edit2, Calendar } from 'lucide-react';
+import { UserPlus, Clock, Users, Phone, LogOut, Check, X, Copy, Sparkles, Smile, Settings, Video, Star, Trash2, Edit2, Calendar, RotateCw } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import useStore from '../store';
 import socket from '../utils/socket';
@@ -27,6 +27,16 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
 
   const [activeTab, setActiveTab] = useState(initialTab);
+
+  // Pull-to-refresh state & refs
+  const mainContentRef = useRef(null);
+  const contentAreaRef = useRef(null);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isPulling, setIsPulling] = useState(false);
+  const touchStartY = useRef(0);
+  const touchStartX = useRef(0);
+  const canPull = useRef(false);
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -261,6 +271,70 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
     }
   };
 
+  const handleTouchStart = (e) => {
+    if (isRefreshing) return;
+    const scrollTop = (mainContentRef.current?.scrollTop || 0) + (contentAreaRef.current?.scrollTop || 0);
+    if (scrollTop <= 0) {
+      canPull.current = true;
+      touchStartY.current = e.touches[0].clientY;
+      touchStartX.current = e.touches[0].clientX;
+    } else {
+      canPull.current = false;
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (!canPull.current || isRefreshing) return;
+    const currentY = e.touches[0].clientY;
+    const currentX = e.touches[0].clientX;
+    const deltaY = currentY - touchStartY.current;
+    const deltaX = currentX - touchStartX.current;
+
+    // Check if horizontal swipe dominates
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      return;
+    }
+
+    const scrollTop = (mainContentRef.current?.scrollTop || 0) + (contentAreaRef.current?.scrollTop || 0);
+    if (scrollTop <= 0 && deltaY > 0) {
+      // Smooth logarithmic / damping curve for pull distance
+      const distance = Math.min(deltaY * 0.45, 80);
+      setPullDistance(distance);
+      setIsPulling(true);
+    } else {
+      if (pullDistance > 0) {
+        setPullDistance(0);
+        setIsPulling(false);
+      }
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (!canPull.current || isRefreshing) return;
+    canPull.current = false;
+    setIsPulling(false);
+
+    if (pullDistance >= 60) {
+      setIsRefreshing(true);
+      setPullDistance(52);
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try { navigator.vibrate(15); } catch (e) {}
+      }
+      try {
+        await Promise.all([fetchFriends(), fetchHistory()]);
+      } catch (err) {
+        console.error('Pull to refresh error:', err);
+      } finally {
+        setTimeout(() => {
+          setIsRefreshing(false);
+          setPullDistance(0);
+        }, 300);
+      }
+    } else {
+      setPullDistance(0);
+    }
+  };
+
   return (
     <div className="dashboard-layout">
       {/* Welcome Toast Notification */}
@@ -347,8 +421,51 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
       </aside>
 
       {/* Main Content */}
-      <main className="main-content">
-        <div className="content-area">
+      <main 
+        className="main-content"
+        ref={mainContentRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+      >
+        {/* Pull to Refresh Indicator */}
+        <div 
+          className={`pull-to-refresh-container ${isRefreshing ? 'refreshing' : ''} ${isPulling ? 'pulling' : ''}`}
+          style={{
+            transform: `translateY(${isRefreshing ? 16 : Math.max(0, pullDistance - 36)}px)`,
+            opacity: isRefreshing ? 1 : Math.min(Math.max(0, (pullDistance - 10) / 40), 1),
+            pointerEvents: 'none'
+          }}
+        >
+          <div className="pull-to-refresh-indicator glass">
+            <RotateCw 
+              size={16} 
+              className={`ptr-icon ${isRefreshing ? 'ptr-spinning' : ''}`}
+              style={{
+                transform: isRefreshing ? undefined : `rotate(${pullDistance * 5}deg)`
+              }}
+            />
+            <span className="ptr-text">
+              {isRefreshing 
+                ? 'Refreshing...' 
+                : pullDistance >= 60 
+                ? 'Release to refresh' 
+                : 'Pull to refresh'}
+            </span>
+          </div>
+        </div>
+
+        <div 
+          className="content-area"
+          ref={contentAreaRef}
+          style={{
+            transform: (pullDistance > 0 || isRefreshing) 
+              ? `translateY(${isRefreshing ? 28 : Math.min(pullDistance * 0.45, 36)}px)` 
+              : 'translateY(0px)',
+            transition: isPulling ? 'none' : 'transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)'
+          }}
+        >
           {activeTab === 'friends' && (
             <div className="friends-view animate-fadeIn">
               
