@@ -214,38 +214,31 @@ export default function CallScreen() {
   };
 
   const showRemoteVideo = callType === 'video' && remoteStream;
-  const showRemoteAudioOnly = callType === 'voice' && remoteStream;
   const showLocalVideo = callType === 'video' && callStatus !== 'idle' && callStatus !== 'ringing' && callStatus !== 'ended';
   const showLocalAudioOnly = callType === 'voice' && callStatus !== 'idle' && callStatus !== 'ringing' && callStatus !== 'ended' && localStream;
 
-  // Bind streams to video elements dynamically when elements are rendered
+  // Bind streams to video elements dynamically
   useEffect(() => {
-    if (showLocalVideo && localVideoRef.current && localStream) {
-      console.log('[Media Debug] Binding localStream to local video element');
+    if (localVideoRef.current && localStream) {
+      console.log('[Media Debug] Binding localStream to local media element');
       localVideoRef.current.srcObject = localStream;
+      const playPromise = localVideoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(e => console.warn('[CallScreen] Local media play error:', e));
+      }
     }
-  }, [showLocalVideo, localStream]);
+  }, [localStream, showLocalVideo, showLocalAudioOnly]);
 
   useEffect(() => {
-    if (showLocalAudioOnly && localVideoRef.current && localStream) {
-      console.log('[Media Debug] Binding localStream to local audio element');
-      localVideoRef.current.srcObject = localStream;
-    }
-  }, [showLocalAudioOnly, localStream]);
-
-  useEffect(() => {
-    if (showRemoteVideo && remoteVideoRef.current && remoteStream) {
+    if (remoteVideoRef.current && remoteStream) {
       console.log('[Media Debug] Binding remoteStream to remote video element');
       remoteVideoRef.current.srcObject = remoteStream;
+      const playPromise = remoteVideoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(e => console.warn('[CallScreen] Remote media play error:', e));
+      }
     }
-  }, [showRemoteVideo, remoteStream]);
-
-  useEffect(() => {
-    if (showRemoteAudioOnly && remoteVideoRef.current && remoteStream) {
-      console.log('[Media Debug] Binding remoteStream to remote audio element');
-      remoteVideoRef.current.srcObject = remoteStream;
-    }
-  }, [showRemoteAudioOnly, remoteStream]);
+  }, [remoteStream]);
 
   return (
     <div 
@@ -254,11 +247,16 @@ export default function CallScreen() {
       onTouchStart={resetControlsTimeout}
       onClick={resetControlsTimeout}
     >
-      {/* Remote Video Area */}
+      {/* Remote Video Area - Always mounted */}
       <div className="call-remote-video-container">
-        {showRemoteVideo ? (
-          <video ref={remoteVideoRef} className="call-remote-video" autoPlay playsInline />
-        ) : (
+        <video 
+          ref={remoteVideoRef} 
+          className="call-remote-video" 
+          autoPlay 
+          playsInline 
+          style={{ display: showRemoteVideo ? 'block' : 'none' }}
+        />
+        {!showRemoteVideo && (
           <div className="call-remote-placeholder">
             <div className={`call-avatar call-avatar--large ${callStatus === 'connecting' || callStatus === 'ringing' || callStatus === 'negotiating' ? 'call-avatar--pulsing' : ''}`}>
               <span className="call-avatar__initials">?</span>
@@ -278,10 +276,6 @@ export default function CallScreen() {
           </div>
         )}
       </div>
-
-      {showRemoteAudioOnly && (
-        <audio ref={remoteVideoRef} autoPlay />
-      )}
 
       {/* Local Video PiP */}
       {showLocalVideo && (

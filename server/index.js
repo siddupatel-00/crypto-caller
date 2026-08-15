@@ -473,16 +473,23 @@ io.on('connection', (socket) => {
   });
 
   // Call Initiation
-  socket.on('call-request', async ({ targetId, callerData }) => {
+  const handleCallRequest = async (payload) => {
+    const { targetId, callerData } = payload || {};
     const callerId = socketToUser.get(socket.id);
-    const callId = uuidv4();
+    const callId = payload?.callId || uuidv4();
     logSignal('call-request', 'RECV', callId, `target: ${targetId} | type: ${callerData?.type}`);
     
-    // Ensure only one active call per receiver
+    // Check if caller or receiver is currently in an active ringing or accepted call
     for (const [existingCallId, call] of activeCalls.entries()) {
-      if (call.targetId === targetId && call.status === 'ringing') {
-        socket.emit('call-failed', { callId, reason: 'User is busy' });
-        return;
+      if (call.status === 'ringing' || call.status === 'accepted') {
+        if (call.callerId === callerId || call.targetId === callerId) {
+          socket.emit('call-failed', { callId, reason: 'You are already in a call' });
+          return;
+        }
+        if (call.callerId === targetId || call.targetId === targetId) {
+          socket.emit('call-failed', { callId, reason: 'User is busy' });
+          return;
+        }
       }
     }
     
@@ -543,9 +550,12 @@ io.on('connection', (socket) => {
     if (!pushSent && !targetSocket) {
       socket.emit('call-failed', { callId, reason: 'User offline and no push token' });
     }
-  });
+  };
 
-  socket.on('call-accept', ({ callId }) => {
+  socket.on('call-request', handleCallRequest);
+  socket.on('call-user', handleCallRequest);
+
+  const handleCallAccept = ({ callId }) => {
     logSignal('call-accept', 'RECV', callId);
     const call = activeCalls.get(callId);
     if (call) {
@@ -561,7 +571,10 @@ io.on('connection', (socket) => {
     } else {
       socket.emit('call-failed', { callId, reason: 'Call expired or cancelled by caller' });
     }
-  });
+  };
+
+  socket.on('call-accept', handleCallAccept);
+  socket.on('accept-call', handleCallAccept);
 
   socket.on('call-decline', async ({ callId }) => {
     const call = activeCalls.get(callId);
@@ -602,12 +615,25 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('ice-candidate', ({ callId, targetId, candidate }) => {
+  socket.on('ice-candidate', (data) => {
+    const { callId, candidate } = data || {};
+    let targetId = data?.targetId;
+    const senderId = socketToUser.get(socket.id);
+
+    if (!targetId && callId) {
+      const call = activeCalls.get(callId);
+      if (call) {
+        targetId = (senderId === call.callerId) ? call.targetId : call.callerId;
+      }
+    }
+
     logSignal('ice-candidate', 'RECV', callId, `candidate for: ${targetId}`);
-    const targetSocket = onlineUsers.get(targetId);
-    if (targetSocket) {
-      logSignal('ice-candidate', 'EMIT', callId, `target socket: ${targetSocket}`);
-      io.to(targetSocket).emit('ice-candidate', { callId, candidate, from: socketToUser.get(socket.id) });
+    if (targetId) {
+      const targetSocket = onlineUsers.get(targetId);
+      if (targetSocket) {
+        logSignal('ice-candidate', 'EMIT', callId, `target socket: ${targetSocket}`);
+        io.to(targetSocket).emit('ice-candidate', { callId, candidate, from: senderId });
+      }
     }
   });
 
