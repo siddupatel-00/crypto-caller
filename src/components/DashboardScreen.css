@@ -18,9 +18,10 @@
   padding: 16px 24px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  color: #fff;
+  color: var(--text-primary);
+  background: var(--bg-surface);
   z-index: 999;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-lg);
 }
 
 .toast-icon {
@@ -68,7 +69,7 @@
 
 .welcome-popup-content h2 {
   font-size: 24px;
-  color: #fff;
+  color: var(--text-primary);
   margin-bottom: 8px;
   font-weight: 800;
 }
@@ -186,7 +187,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--input-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -195,7 +196,7 @@
 
 .invite-code-box:hover {
   border-color: var(--primary);
-  background: rgba(108, 99, 255, 0.05);
+  background: var(--card-inner-bg);
 }
 
 .invite-code-box span {
@@ -284,9 +285,9 @@
   flex: 1;
   padding: 12px 16px;
   border-radius: var(--radius-md);
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--input-bg);
   border: 1px solid var(--border);
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .add-friend-form input:focus {
@@ -328,7 +329,7 @@
 
 .list-item:hover {
   transform: translateX(4px);
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--border-focus);
 }
 
 .item-info {
@@ -371,13 +372,13 @@
 }
 
 .call-btn.offline {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-secondary);
+  background: var(--btn-disabled-bg);
+  color: var(--btn-disabled-text);
 }
 
 .call-btn.offline:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  background: var(--input-bg);
+  color: var(--text-primary);
   transform: translateY(-2px);
 }
 
@@ -419,7 +420,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--input-bg);
+  border: 1px solid var(--border);
 }
 
 .action-btn.accept { color: var(--success); }
@@ -522,9 +524,9 @@
     left: 0;
     width: 100%;
     flex-direction: row;
-    background: rgba(10, 10, 15, 0.95);
+    background: var(--bg-surface);
     backdrop-filter: blur(10px);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--border);
     padding: 8px 16px;
     padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
     z-index: 100;
@@ -575,11 +577,11 @@
   gap: 8px;
   padding: 8px 16px;
   border-radius: 24px;
-  background: rgba(18, 18, 26, 0.88);
+  background: var(--bg-surface);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(108, 99, 255, 0.25);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg), 0 0 20px var(--primary-glow);
   color: var(--text-primary);
 }
 

@@ -93,7 +93,7 @@ function FriendProfileScreen() {
       >
         <button 
           onClick={() => navigate('/dashboard')}
-          style={{ position: 'absolute', top: '20px', left: '20px', background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+          style={{ position: 'absolute', top: '20px', left: '20px', background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
         >
           <ChevronLeft size={20} /> Back
         </button>
@@ -107,7 +107,7 @@ function FriendProfileScreen() {
             {friend.alias || friend.username}
             {Boolean(friend.is_buddy) && <Star size={20} fill="#FCD34D" color="#FCD34D" style={{ marginLeft: '8px', display: 'inline-block', verticalAlign: 'middle' }} />}
           </h2>
-          {friend.alias && <p style={{ textAlign: 'center', color: '#888', marginBottom: '16px' }}>@{friend.username}</p>}
+          {friend.alias && <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '16px' }}>@{friend.username}</p>}
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: friend.alias ? '0' : '16px', marginBottom: '30px' }}>
             <button 
@@ -127,28 +127,28 @@ function FriendProfileScreen() {
           </div>
         </div>
 
-        <div className="profile-stats" style={{ display: 'flex', justifyContent: 'space-around', margin: '24px 0', background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '12px' }}>
+        <div className="profile-stats" style={{ display: 'flex', justifyContent: 'space-around', margin: '24px 0', background: 'var(--card-inner-bg)', border: '1px solid var(--border)', padding: '20px', borderRadius: '12px' }}>
           <div style={{ textAlign: 'center' }}>
-            <Calendar size={24} color="#a0a0a0" style={{ margin: '0 auto 8px' }} />
-            <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>Connected</div>
-            <div style={{ fontWeight: '500', fontSize: '16px' }}>{friend.created_at ? format(new Date(friend.created_at * 1000), 'MMM d, yyyy') : 'Recently'}</div>
+            <Calendar size={24} color="var(--text-secondary)" style={{ margin: '0 auto 8px' }} />
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Connected</div>
+            <div style={{ fontWeight: '500', fontSize: '16px', color: 'var(--text-primary)' }}>{friend.created_at ? format(new Date(friend.created_at * 1000), 'MMM d, yyyy') : 'Recently'}</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <Clock size={24} color="#a0a0a0" style={{ margin: '0 auto 8px' }} />
-            <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>Lifetime Talk</div>
-            <div style={{ fontWeight: '500', fontSize: '16px' }}>{getLifetimeTalkTime()}</div>
+            <Clock size={24} color="var(--text-secondary)" style={{ margin: '0 auto 8px' }} />
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Lifetime Talk</div>
+            <div style={{ fontWeight: '500', fontSize: '16px', color: 'var(--text-primary)' }}>{getLifetimeTalkTime()}</div>
           </div>
         </div>
 
         <div style={{ marginBottom: '30px' }}>
-          <label style={{ display: 'block', fontSize: '14px', color: '#a0a0a0', marginBottom: '10px' }}>Set Custom Alias</label>
+          <label style={{ display: 'block', fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '10px' }}>Set Custom Alias</label>
           <div style={{ display: 'flex', gap: '8px' }}>
             <input 
               type="text" 
               value={editAlias} 
               onChange={e => setEditAlias(e.target.value)} 
               placeholder="Custom name..."
-              style={{ flex: 1, padding: '12px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '15px' }}
+              style={{ flex: 1, padding: '12px', borderRadius: '8px', background: 'var(--input-bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '15px' }}
             />
             <button onClick={updateAlias} style={{ padding: '0 20px', background: 'var(--primary-glow)', color: 'var(--primary-light)', borderRadius: '8px', fontWeight: '500' }}>Save</button>
           </div>
@@ -157,7 +157,7 @@ function FriendProfileScreen() {
         <div style={{ display: 'flex', gap: '16px' }}>
           <button 
             onClick={toggleBuddy}
-            style={{ flex: 1, padding: '14px', borderRadius: '8px', background: friend.is_buddy ? 'rgba(252, 211, 77, 0.1)' : 'rgba(255,255,255,0.05)', color: friend.is_buddy ? '#FCD34D' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '500' }}
+            style={{ flex: 1, padding: '14px', borderRadius: '8px', background: friend.is_buddy ? 'rgba(252, 211, 77, 0.1)' : 'var(--card-inner-bg)', color: friend.is_buddy ? '#FCD34D' : 'var(--text-primary)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '500' }}
           >
             <Star size={18} fill={friend.is_buddy ? "#FCD34D" : "none"} />
             {friend.is_buddy ? 'Remove Buddy' : 'Make Buddy'}

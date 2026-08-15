@@ -71,9 +71,9 @@
   width: 100%;
   padding: 16px 16px 16px 48px;
   border-radius: var(--radius-md);
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--input-bg);
   border: 1px solid var(--border);
-  color: #fff;
+  color: var(--text-primary);
   font-size: 15px;
   transition: all 0.2s;
 }
@@ -137,9 +137,9 @@
   justify-content: center;
   gap: 12px;
   padding: 16px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--card-inner-bg);
   border: 1px solid var(--border);
-  color: #fff;
+  color: var(--text-primary);
   border-radius: var(--radius-md);
   font-size: 15px;
   font-weight: 600;
@@ -147,8 +147,8 @@
 }
 
 .google-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: var(--input-bg);
+  border-color: var(--border-focus);
 }
 
 .auth-toggle-text {

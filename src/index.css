@@ -18,6 +18,10 @@
   --warning: #ffa502;
   --border: rgba(255, 255, 255, 0.1);
   --border-focus: rgba(108, 99, 255, 0.5);
+  --input-bg: rgba(0, 0, 0, 0.25);
+  --card-inner-bg: rgba(0, 0, 0, 0.2);
+  --btn-disabled-bg: rgba(255, 255, 255, 0.08);
+  --btn-disabled-text: rgba(255, 255, 255, 0.4);
   --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   --shadow-glow: 0 0 30px var(--primary-glow);
   --radius-sm: 8px;
@@ -120,7 +124,7 @@ a {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--text-tertiary);
 }
 
 /* ===== Keyframe Animations ===== */
@@ -224,21 +228,25 @@ a {
   --primary: #6c63ff;
   --primary-light: #8b83ff;
   --primary-dark: #5a52d9;
-  --primary-glow: rgba(108, 99, 255, 0.3);
-  --bg-deep: #ffffff;
-  --bg-surface: #f3f4f6;
-  --bg-card: rgba(0, 0, 0, 0.05);
-  --bg-glass: rgba(255, 255, 255, 0.8);
-  --text-primary: #111827;
-  --text-secondary: #4b5563;
-  --text-tertiary: #9ca3af;
+  --primary-glow: rgba(108, 99, 255, 0.2);
+  --bg-deep: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-card: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.9);
+  --input-bg: #f1f5f9;
+  --card-inner-bg: #f8fafc;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
   --success: #00d97e;
   --danger: #ff4757;
-  --danger-glow: rgba(255, 71, 87, 0.3);
+  --danger-glow: rgba(255, 71, 87, 0.2);
   --warning: #ffa502;
-  --border: rgba(0, 0, 0, 0.1);
-  --border-focus: rgba(108, 99, 255, 0.5);
-  --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+  --border: rgba(0, 0, 0, 0.08);
+  --border-focus: var(--primary);
+  --btn-disabled-bg: #e2e8f0;
+  --btn-disabled-text: #94a3b8;
+  --shadow-lg: 0 10px 30px -5px rgba(0, 0, 0, 0.06);
   --shadow-glow: 0 0 30px var(--primary-glow);
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -259,6 +267,10 @@ a {
   --bg-surface: #000000;
   --bg-card: rgba(255, 255, 255, 0.05);
   --bg-glass: rgba(0, 0, 0, 0.5);
+  --input-bg: rgba(255, 255, 255, 0.1);
+  --card-inner-bg: rgba(255, 255, 255, 0.05);
+  --btn-disabled-bg: rgba(255, 255, 255, 0.1);
+  --btn-disabled-text: rgba(255, 255, 255, 0.4);
   --text-primary: #ffffff;
   --text-secondary: rgba(255, 255, 255, 0.8);
   --text-tertiary: rgba(255, 255, 255, 0.6);

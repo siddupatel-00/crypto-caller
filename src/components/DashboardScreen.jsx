@@ -481,9 +481,9 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
                       width: '100%',
                       padding: '12px 16px',
                       borderRadius: '12px',
-                      background: 'rgba(0,0,0,0.2)',
-                      border: '1px solid rgba(255,255,255,0.05)',
-                      color: '#fff',
+                      background: 'var(--input-bg)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-primary)',
                       fontSize: '14px'
                     }}
                   />
@@ -537,7 +537,7 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
                             {friend.is_buddy ? <Star size={14} fill="#FCD34D" color="#FCD34D" /> : null}
                             {friend.alias || friend.username}
                           </span>
-                          {friend.alias && <span style={{ fontSize: '11px', color: '#666' }}>@{friend.username}</span>}
+                          {friend.alias && <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>@{friend.username}</span>}
                         </div>
                       </div>
                       <div className="call-actions">
@@ -565,9 +565,9 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
 
           {activeTab === 'add-friend' && (
             <div className="add-friend-view animate-fadeIn glass-card" style={{ padding: '32px', maxWidth: '600px', margin: '0 auto' }}>
-              <h2 style={{ marginBottom: '24px', fontSize: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '16px' }}>Add Friend</h2>
-              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <p style={{ color: '#a0a0a0', fontSize: '14px', marginBottom: '20px' }}>Enter your friend's exact username or their 24-hour invite code to send a request.</p>
+              <h2 style={{ marginBottom: '24px', fontSize: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>Add Friend</h2>
+              <div style={{ background: 'var(--card-inner-bg)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '20px' }}>Enter your friend's exact username or their 24-hour invite code to send a request.</p>
                 
                 <form className="add-friend-form" onSubmit={(e) => {
                   handleAddFriend(e);
@@ -578,14 +578,14 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
                     placeholder="Username or 24h code..." 
                     value={addInput}
                     onChange={(e) => setAddInput(e.target.value)}
-                    style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)', color: '#fff', fontSize: '16px' }}
+                    style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text-primary)', fontSize: '16px' }}
                   />
                   <button 
                     type="submit" 
                     className="home-btn home-btn--primary"
                     style={{
-                      background: addInput.trim() ? 'var(--primary)' : 'rgba(255, 255, 255, 0.1)',
-                      color: addInput.trim() ? '#fff' : '#888',
+                      background: addInput.trim() ? 'var(--primary)' : 'var(--btn-disabled-bg)',
+                      color: addInput.trim() ? '#fff' : 'var(--btn-disabled-text)',
                       transition: 'all 0.3s ease',
                       padding: '16px',
                       width: '100%',
@@ -613,9 +613,9 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
                     style={{
                       padding: '8px 16px',
                       borderRadius: '20px',
-                      background: historyFilter === filter ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                      background: historyFilter === filter ? 'var(--primary)' : 'var(--input-bg)',
                       color: historyFilter === filter ? '#fff' : 'var(--text-secondary)',
-                      border: 'none',
+                      border: '1px solid var(--border)',
                       cursor: 'pointer',
                       textTransform: 'capitalize',
                       fontSize: '13px',
@@ -664,25 +664,25 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
 
           {activeTab === 'settings' && (
             <div className="settings-view animate-fadeIn glass-card" style={{ padding: '32px', maxWidth: '600px', margin: '0 auto' }}>
-              <h2 style={{ marginBottom: '24px', fontSize: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '16px' }}>Settings</h2>
+              <h2 style={{ marginBottom: '24px', fontSize: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>Settings</h2>
               
               {/* Appearance */}
               <div className="settings-section" style={{ marginBottom: '32px' }}>
                 <h3 style={{ fontSize: '16px', color: 'var(--primary-light)', marginBottom: '16px' }}>Appearance</h3>
-                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', color: '#fff', fontWeight: '500' }}>App Theme</label>
-                  <p style={{ fontSize: '13px', color: '#888', marginBottom: '12px' }}>Choose your preferred color theme.</p>
+                <div style={{ background: 'var(--card-inner-bg)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+                  <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-primary)', fontWeight: '500' }}>App Theme</label>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>Choose your preferred color theme.</p>
                   <select 
                     value={theme} 
                     onChange={(e) => useStore.getState().setTheme(e.target.value)}
                     style={{
-                      padding: '12px 16px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)',
-                      color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)', width: '100%', outline: 'none'
+                      padding: '12px 16px', borderRadius: '12px', background: 'var(--input-bg)',
+                      color: 'var(--text-primary)', border: '1px solid var(--border)', width: '100%', outline: 'none'
                     }}
                   >
-                    <option value="dark" style={{background: '#111', color: '#fff'}}>Dark Theme (Default)</option>
-                    <option value="light" style={{background: '#fff', color: '#000'}}>Light Theme</option>
-                    <option value="bw" style={{background: '#000', color: '#fff'}}>High Contrast (Black & White)</option>
+                    <option value="dark" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>Dark Theme (Default)</option>
+                    <option value="light" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>Light Theme</option>
+                    <option value="bw" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>High Contrast (Black & White)</option>
                   </select>
                 </div>
               </div>
@@ -690,48 +690,48 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
               {/* Profile & Invite Section */}
               <div className="settings-section" style={{ marginBottom: '32px' }}>
                 <h3 style={{ fontSize: '16px', color: 'var(--primary-light)', marginBottom: '16px' }}>Profile & Invite</h3>
-                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <p style={{ color: '#a0a0a0', fontSize: '13px', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Your 24h Invite Code</p>
+                <div style={{ background: 'var(--card-inner-bg)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Your 24h Invite Code</p>
                   <div 
                     onClick={copyInviteCode}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '12px',
-                      cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)', transition: 'all 0.2s'
+                      background: 'var(--input-bg)', padding: '16px', borderRadius: '12px',
+                      cursor: 'pointer', border: '1px solid var(--border)', transition: 'all 0.2s'
                     }}
                     onMouseOver={(e) => e.currentTarget.style.borderColor = 'var(--primary)'}
-                    onMouseOut={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}
+                    onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
                   >
                     <span style={{ fontSize: '18px', letterSpacing: '2px', fontFamily: 'monospace', color: 'var(--primary-light)' }}>{user?.invite_code}</span>
-                    {copied ? <Check size={20} className="text-success" /> : <Copy size={20} color="#a0a0a0" />}
+                    {copied ? <Check size={20} className="text-success" /> : <Copy size={20} color="var(--text-secondary)" />}
                   </div>
-                  <p style={{ color: '#666', fontSize: '12px', marginTop: '12px' }}>Share this code with your friends so they can add you.</p>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '12px' }}>Share this code with your friends so they can add you.</p>
                 </div>
               </div>
 
               {/* Call Preferences */}
               <div className="settings-section" style={{ marginBottom: '32px' }}>
                 <h3 style={{ fontSize: '16px', color: 'var(--primary-light)', marginBottom: '16px' }}>Call Preferences</h3>
-                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ background: 'var(--card-inner-bg)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
                   <div style={{ marginBottom: '24px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', color: '#fff', fontWeight: '500' }}>Ring Timeout</label>
-                    <p style={{ fontSize: '13px', color: '#888', marginBottom: '12px' }}>How long your phone rings before a call ends.</p>
+                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-primary)', fontWeight: '500' }}>Ring Timeout</label>
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>How long your phone rings before a call ends.</p>
                     <select 
                       value={ringTimeout} 
                       onChange={(e) => setRingTimeout(parseInt(e.target.value, 10))}
                       style={{
-                        padding: '12px 16px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)',
-                        color: '#fff', border: '1px solid rgba(255,255,255,0.1)', width: '100%', outline: 'none'
+                        padding: '12px 16px', borderRadius: '12px', background: 'var(--input-bg)',
+                        color: 'var(--text-primary)', border: '1px solid var(--border)', width: '100%', outline: 'none'
                       }}
                     >
-                      <option value={15} style={{background: '#111'}}>15 Seconds</option>
-                      <option value={30} style={{background: '#111'}}>30 Seconds (Default)</option>
-                      <option value={45} style={{background: '#111'}}>45 Seconds</option>
-                      <option value={60} style={{background: '#111'}}>60 Seconds</option>
+                      <option value={15} style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>15 Seconds</option>
+                      <option value={30} style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>30 Seconds (Default)</option>
+                      <option value={45} style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>45 Seconds</option>
+                      <option value={60} style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>60 Seconds</option>
                     </select>
                   </div>
 
-                  <div style={{ paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                  <div style={{ paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
                     <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '12px', marginBottom: '16px' }}>
                       <input 
                         type="checkbox" 
@@ -745,13 +745,13 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
                         }}
                         style={{ width: '20px', height: '20px', accentColor: 'var(--primary)' }}
                       />
-                      <span style={{ color: '#fff', fontWeight: '500' }}>Enable Incoming Ringtone</span>
+                      <span style={{ color: 'var(--text-primary)', fontWeight: '500' }}>Enable Incoming Ringtone</span>
                     </label>
                     
                     {ringtoneEnabled && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingLeft: '32px' }}>
                         <div>
-                          <label style={{ display: 'block', marginBottom: '8px', color: '#a0a0a0', fontSize: '13px' }}>Sound Preset</label>
+                          <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>Sound Preset</label>
                           <div style={{ display: 'flex', gap: '12px' }}>
                             <select 
                               value={selectedRingtone} 
@@ -760,18 +760,18 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
                                 if (isPreviewPlaying) ringtoneSynth.play(e.target.value, ringtoneVolume);
                               }}
                               style={{
-                                padding: '10px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)',
-                                color: '#fff', border: '1px solid rgba(255,255,255,0.1)', flex: 1, outline: 'none'
+                                padding: '10px 16px', borderRadius: '10px', background: 'var(--input-bg)',
+                                color: 'var(--text-primary)', border: '1px solid var(--border)', flex: 1, outline: 'none'
                               }}
                             >
-                              <option value="marimba" style={{background: '#111'}}>Classic Marimba</option>
-                              <option value="whatsapp" style={{background: '#111'}}>WhatsApp Bell</option>
-                              <option value="signal" style={{background: '#111'}}>Signal Chime</option>
-                              <option value="telegram" style={{background: '#111'}}>Telegram Trill</option>
-                              <option value="bells" style={{background: '#111'}}>Echo Bells</option>
-                              <option value="pulse" style={{background: '#111'}}>Digital Pulse</option>
-                              <option value="zen" style={{background: '#111'}}>Zen Bowl</option>
-                              <option value="cyber" style={{background: '#111'}}>Cyber Tech</option>
+                              <option value="marimba" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>Classic Marimba</option>
+                              <option value="whatsapp" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>WhatsApp Bell</option>
+                              <option value="signal" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>Signal Chime</option>
+                              <option value="telegram" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>Telegram Trill</option>
+                              <option value="bells" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>Echo Bells</option>
+                              <option value="pulse" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>Digital Pulse</option>
+                              <option value="zen" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>Zen Bowl</option>
+                              <option value="cyber" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>Cyber Tech</option>
                             </select>
                             <button 
                               onClick={() => togglePreview(selectedRingtone)}
@@ -806,14 +806,14 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
                             >
                               Pick Android System Ringtone
                             </button>
-                            <p style={{ color: '#888', fontSize: '11px', marginTop: '8px' }}>
+                            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '8px' }}>
                               This will override the sound preset above for incoming calls on Android.
                             </p>
                           </div>
                         )}
 
                         <div>
-                          <label style={{ display: 'block', marginBottom: '8px', color: '#a0a0a0', fontSize: '13px' }}>Volume</label>
+                          <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>Volume</label>
                           <input 
                             type="range" 
                             min="0" max="1" step="0.1" 
@@ -832,7 +832,7 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
                 </div>
               </div>
 
-              <div style={{ marginTop: '40px', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+              <div style={{ marginTop: '40px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
                 <button 
                   onClick={handleSignOut}
                   style={{
