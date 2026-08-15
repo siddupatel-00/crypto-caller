@@ -158,9 +158,7 @@ export default function AuthScreen() {
       
       <div className="auth-card glass-card animate-slideUp">
         <div className="auth-logo">
-          <div className="auth-logo-icon">
-            <Phone size={28} />
-          </div>
+          <img src="/logo.png" alt="CallVerse Logo" className="auth-logo-img" style={{ width: '64px', height: '64px', objectFit: 'contain', marginBottom: '12px' }} />
           <h1>CallVerse</h1>
         </div>
         
