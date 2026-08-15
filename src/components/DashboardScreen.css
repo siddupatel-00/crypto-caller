@@ -139,16 +139,31 @@
   margin-bottom: 32px;
 }
 
-.user-avatar {
+.user-avatar,
+.user-profile .user-avatar {
   width: 48px;
   height: 48px;
   border-radius: 14px;
   background: linear-gradient(135deg, var(--primary), var(--primary-light));
-  color: #fff;
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 20px;
+  font-weight: 700;
+}
+
+[data-theme="bw"] .user-avatar,
+[data-theme="bw"] .user-profile .user-avatar {
+  background: #ffffff;
+  color: #000000;
+  font-weight: 800;
+}
+
+[data-theme="light"] .user-avatar,
+[data-theme="light"] .user-profile .user-avatar {
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: #ffffff;
   font-weight: 700;
 }
 
@@ -609,4 +624,88 @@
   font-weight: 500;
   letter-spacing: 0.2px;
 }
+
+/* ===== B&W Theme Overrides for Dashboard ===== */
+[data-theme="bw"] .badge {
+  background: #ffffff !important;
+  color: #000000 !important;
+  font-weight: 800;
+}
+
+[data-theme="bw"] .nav-item.active {
+  background: #ffffff !important;
+  color: #000000 !important;
+  font-weight: 700;
+}
+
+[data-theme="bw"] .nav-item.active svg {
+  color: #000000 !important;
+  stroke: #000000 !important;
+}
+
+[data-theme="bw"] .call-btn.voice-btn:not(.offline),
+[data-theme="bw"] .call-btn.video-btn:not(.offline) {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+[data-theme="bw"] .call-btn.voice-btn:not(.offline) svg,
+[data-theme="bw"] .call-btn.video-btn:not(.offline) svg {
+  color: #000000 !important;
+  stroke: #000000 !important;
+}
+
+[data-theme="bw"] .action-btn.accept {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-color: #ffffff;
+}
+
+[data-theme="bw"] .action-btn.accept svg {
+  color: #000000 !important;
+  stroke: #000000 !important;
+}
+
+[data-theme="bw"] .action-btn.decline {
+  background: #000000 !important;
+  color: #ffffff !important;
+  border-color: #ffffff;
+}
+
+[data-theme="bw"] .action-btn.decline svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+[data-theme="bw"] .welcome-popup-badge {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+[data-theme="bw"] .welcome-popup-badge svg {
+  color: #000000 !important;
+  stroke: #000000 !important;
+}
+
+[data-theme="bw"] .step-num {
+  background: #ffffff !important;
+  color: #000000 !important;
+  font-weight: 800;
+}
+
+[data-theme="bw"] .invite-code-box span {
+  color: #ffffff !important;
+}
+
+[data-theme="bw"] .theme-quick-btn {
+  background: #ffffff !important;
+  color: #000000 !important;
+  font-weight: 700;
+}
+
+[data-theme="bw"] .theme-quick-btn svg {
+  color: #000000 !important;
+  stroke: #000000 !important;
+}
+
 

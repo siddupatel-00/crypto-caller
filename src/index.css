@@ -291,3 +291,55 @@ a {
   --transition-normal: 250ms ease;
   --transition-smooth: 350ms cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* User Avatars */
+.user-avatar,
+.user-profile .user-avatar {
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: #ffffff;
+  font-weight: 700;
+}
+
+[data-theme="bw"] .user-avatar,
+[data-theme="bw"] .user-profile .user-avatar {
+  background: #ffffff;
+  color: #000000;
+  font-weight: 800;
+}
+
+[data-theme="light"] .user-avatar,
+[data-theme="light"] .user-profile .user-avatar {
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* Crisp B&W contrast overrides */
+[data-theme="bw"] .badge {
+  background: #ffffff !important;
+  color: #000000 !important;
+  font-weight: 800;
+}
+
+[data-theme="bw"] .home-btn--primary,
+[data-theme="bw"] .welcome-get-started-btn,
+[data-theme="bw"] .auth-btn {
+  background: #ffffff !important;
+  color: #000000 !important;
+  font-weight: 700;
+}
+
+[data-theme="bw"] .home-logo__icon,
+[data-theme="bw"] .auth-logo-icon,
+[data-theme="bw"] .welcome-popup-badge {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+[data-theme="bw"] .home-logo__icon svg,
+[data-theme="bw"] .auth-logo-icon svg,
+[data-theme="bw"] .welcome-popup-badge svg {
+  color: #000000 !important;
+  stroke: #000000;
+}
+

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SERVER_URL } from '../utils/socket';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, Clock, Users, Phone, LogOut, Check, X, Copy, Sparkles, Smile, Settings, Video, Star, Trash2, Edit2, Calendar, RotateCw } from 'lucide-react';
+import { UserPlus, Clock, Users, Phone, LogOut, Check, X, Copy, Sparkles, Smile, Settings, Video, Star, Trash2, Edit2, Calendar, RotateCw, Sun, Moon, Palette } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import useStore from '../store';
 import socket from '../utils/socket';
@@ -469,9 +469,9 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
           {activeTab === 'friends' && (
             <div className="friends-view animate-fadeIn">
               
-              {/* Friends Header: Search */}
-              <div className="friends-header-actions glass-card" style={{ marginBottom: '24px', padding: '16px' }}>
-                <div className="search-bar" style={{ display: 'flex', position: 'relative' }}>
+              {/* Friends Header: Search & Theme Toggle */}
+              <div className="friends-header-actions glass-card" style={{ marginBottom: '24px', padding: '12px 16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div className="search-bar" style={{ display: 'flex', position: 'relative', flex: 1 }}>
                   <input 
                     type="text" 
                     placeholder="Search your friends..." 
@@ -488,6 +488,36 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
                     }}
                   />
                 </div>
+                
+                {/* Quick Theme Selector Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = theme === 'dark' ? 'light' : theme === 'light' ? 'bw' : 'dark';
+                    useStore.getState().setTheme(next);
+                  }}
+                  title={`Current Theme: ${theme.toUpperCase()} (Click to toggle)`}
+                  className="theme-quick-btn"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 14px',
+                    borderRadius: '12px',
+                    background: 'var(--input-bg)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.2s ease',
+                    flexShrink: 0
+                  }}
+                >
+                  {theme === 'light' ? <Sun size={18} color="#f59e0b" /> : theme === 'bw' ? <Palette size={18} /> : <Moon size={18} color="#8b83ff" />}
+                  <span style={{ textTransform: 'capitalize' }}>{theme}</span>
+                </button>
               </div>
               {requests.length > 0 && (
                 <div className="requests-section">
