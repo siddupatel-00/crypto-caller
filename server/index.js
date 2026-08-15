@@ -593,14 +593,13 @@ io.on('connection', (socket) => {
       return;
     }
     
-    // Check if caller or receiver is currently in an active ringing or accepted call
+    // Check if receiver is busy; auto-clean any stale call for the caller
     for (const [existingCallId, call] of activeCalls.entries()) {
       if (call.status === 'ringing' || call.status === 'accepted') {
         if (call.callerId === callerId || call.targetId === callerId) {
-          socket.emit('call-failed', { callId, reason: 'You are already in a call' });
-          return;
-        }
-        if (call.callerId === targetId || call.targetId === targetId) {
+          clearTimeout(call.timeoutId);
+          activeCalls.delete(existingCallId);
+        } else if (call.callerId === targetId || call.targetId === targetId) {
           socket.emit('call-failed', { callId, reason: 'User is busy' });
           return;
         }
