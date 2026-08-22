@@ -3,25 +3,17 @@
   min-height: 100dvh;
   background: var(--bg-deep);
   color: var(--text-1);
-  position: relative;
   overflow-x: hidden;
-  padding-top: env(safe-area-inset-top, 0px);
-}
-
-.land__glow {
-  display: none;
 }
 
 /* Nav */
 .land__nav {
-  position: relative;
-  z-index: 5;
   display: flex;
   align-items: center;
-  gap: 24px;
-  max-width: 1080px;
+  justify-content: space-between;
+  max-width: 1120px;
   margin: 0 auto;
-  padding: 20px 24px;
+  padding: 18px 24px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -29,16 +21,16 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--text-1);
 }
 
 .land__links {
   display: flex;
-  gap: 24px;
-  margin-left: auto;
+  gap: 28px;
   font-size: 13px;
+  font-weight: 500;
   color: var(--text-2);
 }
 
@@ -46,22 +38,15 @@
   color: var(--text-1);
 }
 
-.land__navCta {
-  padding: 8px 16px;
-  font-size: 13px;
-}
-
 /* Hero */
 .land__hero {
-  position: relative;
-  z-index: 1;
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
+  grid-template-columns: 1.15fr 0.85fr;
   align-items: center;
   gap: 48px;
-  max-width: 1080px;
+  max-width: 1120px;
   margin: 0 auto;
-  padding: 72px 24px 90px;
+  padding: 80px 24px 72px;
 }
 
 .land__pill {
@@ -74,24 +59,25 @@
   background: var(--accent-soft);
   border: 1px solid var(--accent-soft);
   border-radius: var(--radius-pill);
-  padding: 6px 12px;
-  margin-bottom: 20px;
+  padding: 6px 14px;
+  margin-bottom: 24px;
 }
 
 .land__h1 {
-  font-size: clamp(38px, 5.5vw, 56px);
+  font-size: clamp(40px, 5.5vw, 58px);
   font-weight: 800;
-  line-height: 1.1;
-  margin-bottom: 16px;
+  line-height: 1.08;
   letter-spacing: -0.03em;
+  margin-bottom: 18px;
+  color: var(--text-1);
 }
 
 .land__sub {
   color: var(--text-2);
   font-size: 16px;
   line-height: 1.6;
-  max-width: 48ch;
-  margin-bottom: 28px;
+  max-width: 46ch;
+  margin-bottom: 32px;
 }
 
 .land__ctas {
@@ -102,11 +88,12 @@
 
 .land__metaRow {
   display: flex;
-  gap: 20px;
+  gap: 24px;
   flex-wrap: wrap;
-  margin-top: 24px;
-  font-size: 12px;
+  margin-top: 32px;
+  font-size: 13px;
   color: var(--text-3);
+  font-weight: 500;
 }
 
 .land__metaRow span {
@@ -115,16 +102,16 @@
   gap: 6px;
 }
 
-/* Hero Phone Mockup */
+/* Phone Mockup */
 .land__visual {
-  display: grid;
-  place-items: center;
+  display: flex;
+  justify-content: center;
 }
 
 .land__phone {
-  width: min(280px, 80vw);
-  aspect-ratio: 9/17;
-  border-radius: 32px;
+  width: 270px;
+  aspect-ratio: 9/16;
+  border-radius: 36px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   position: relative;
@@ -138,8 +125,8 @@
   top: 14px;
   left: 50%;
   transform: translateX(-50%);
-  width: 70px;
-  height: 6px;
+  width: 64px;
+  height: 5px;
   border-radius: 999px;
   background: var(--border);
 }
@@ -149,7 +136,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 0 20px;
+  padding: 0 16px;
 }
 
 .land__callTop {
@@ -159,9 +146,9 @@
   font-size: 11px;
   color: var(--success);
   background: var(--success-soft);
-  border: 1px solid var(--success);
   padding: 4px 10px;
   border-radius: var(--radius-pill);
+  font-weight: 600;
 }
 
 .land__liveDot {
@@ -172,28 +159,25 @@
 }
 
 .land__avatarRow {
-  margin: 20px 0 12px;
+  margin: 18px 0 10px;
 }
 
 .land__avatar {
-  width: 80px;
-  height: 80px;
+  width: 76px;
+  height: 76px;
   border-radius: 999px;
   display: grid;
   place-items: center;
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 700;
   color: white;
   background: var(--accent);
 }
 
-.land__avatarRing {
-  display: none;
-}
-
 .land__callerName {
   font-weight: 700;
-  font-size: 18px;
+  font-size: 17px;
+  color: var(--text-1);
 }
 
 .land__encLine {
@@ -207,13 +191,13 @@
 
 .land__controls {
   display: flex;
-  gap: 12px;
-  margin-top: 22px;
+  gap: 10px;
+  margin-top: 20px;
 }
 
 .lc {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 999px;
   display: grid;
   place-items: center;
@@ -222,7 +206,7 @@
   color: white;
 }
 
-.lc.on {
+.lc--active {
   background: white;
   color: #000;
 }
@@ -238,17 +222,18 @@
   align-items: center;
   gap: 6px;
   font-size: 11px;
+  font-weight: 600;
   color: var(--text-2);
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  padding: 6px 10px;
+  padding: 6px 12px;
   border-radius: var(--radius-pill);
   white-space: nowrap;
 }
 
 .chip1 {
   top: 14%;
-  left: -40px;
+  left: -36px;
 }
 
 .chip2 {
@@ -256,22 +241,27 @@
   right: -36px;
 }
 
-/* Features Grid */
+/* Sections */
 .land__section {
-  position: relative;
-  z-index: 1;
-  max-width: 1080px;
+  max-width: 1120px;
   margin: 0 auto;
-  padding: 60px 24px;
+  padding: 64px 24px;
+}
+
+.land__sectionHead {
+  margin-bottom: 36px;
 }
 
 .land__h2 {
-  font-size: clamp(28px, 4vw, 36px);
-  line-height: 1.1;
-  margin: 12px 0 32px;
+  font-size: clamp(26px, 3.8vw, 34px);
+  font-weight: 800;
+  line-height: 1.15;
   letter-spacing: -0.02em;
+  margin-top: 8px;
+  color: var(--text-1);
 }
 
+/* Features Grid */
 .land__grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -282,7 +272,7 @@
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 22px 20px;
+  padding: 24px 20px;
   transition: background var(--ease);
 }
 
@@ -291,8 +281,8 @@
 }
 
 .land__icon {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius-sm);
   display: grid;
   place-items: center;
@@ -302,18 +292,19 @@
 }
 
 .land__card h3 {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
-  margin-bottom: 8px;
+  color: var(--text-1);
+  margin-bottom: 6px;
 }
 
 .land__card p {
   font-size: 13px;
   color: var(--text-2);
-  line-height: 1.6;
+  line-height: 1.55;
 }
 
-/* Steps */
+/* Steps (How it works) */
 .land__steps {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -324,56 +315,68 @@
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 24px 20px;
+  padding: 28px 22px;
 }
 
-.land__num {
+.land__stepNum {
   font-size: 13px;
   font-weight: 700;
   color: var(--accent);
+  display: block;
   margin-bottom: 12px;
 }
 
 .land__step h3 {
   font-size: 16px;
   font-weight: 700;
-  margin-bottom: 8px;
+  color: var(--text-1);
+  margin-bottom: 6px;
 }
 
 .land__step p {
   font-size: 13px;
   color: var(--text-2);
-  line-height: 1.6;
+  line-height: 1.55;
 }
 
-/* Download Section */
-.land__dlCard {
+/* CTA Card Box */
+.land__ctaCard {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 40px 32px;
+  padding: 56px 36px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 32px;
+  text-align: center;
+  gap: 16px;
 }
 
-.land__dlCard h2 {
-  font-size: 24px;
-  font-weight: 700;
-  margin-bottom: 8px;
+.land__ctaTitle {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-1);
 }
 
-.land__dlCard p {
+.land__ctaSub {
   color: var(--text-2);
-  font-size: 14px;
+  font-size: 15px;
+  max-width: 52ch;
+  line-height: 1.6;
+}
+
+.land__ctaBadge {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 8px;
 }
 
 /* Footer */
 .land__footer {
-  max-width: 1080px;
+  max-width: 1120px;
   margin: 0 auto;
-  padding: 32px 24px 48px;
+  padding: 28px 24px 44px;
   border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -382,10 +385,20 @@
   color: var(--text-3);
 }
 
-@media (max-width: 860px) {
+.land__footLink {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.land__footLink:hover {
+  color: var(--text-1);
+}
+
+/* Responsive */
+@media (max-width: 920px) {
   .land__hero {
     grid-template-columns: 1fr;
-    padding: 40px 20px 60px;
+    padding: 48px 20px 56px;
     gap: 40px;
   }
   
@@ -400,21 +413,20 @@
   .land__steps {
     grid-template-columns: 1fr;
   }
+}
+
+@media (max-width: 580px) {
+  .land__grid {
+    grid-template-columns: 1fr;
+  }
   
-  .land__dlCard {
-    flex-direction: column;
-    align-items: flex-start;
+  .land__ctaCard {
+    padding: 36px 20px;
   }
   
   .land__footer {
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
     align-items: flex-start;
-  }
-}
-
-@media (max-width: 540px) {
-  .land__grid {
-    grid-template-columns: 1fr;
   }
 }

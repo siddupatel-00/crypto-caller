@@ -4,9 +4,14 @@ import { Phone, Video, ShieldCheck, Zap, Users, Smartphone, ArrowRight, Copy, St
 import useStore from '../store';
 import './LandingScreen.css';
 
-function LogoMark({ size = 34 }) {
+function LogoMark({ size = 32 }) {
   return (
-    <img src="/logo.svg" alt="CallVerse logo" width={size} height={size} style={{ width: size, height: size, display: 'block' }} />
+    <div style={{
+      width: size, height: size, borderRadius: 8, background: 'var(--accent)',
+      display: 'grid', placeItems: 'center', color: '#fff', flexShrink: 0
+    }}>
+      <Video size={size * 0.55} />
+    </div>
   );
 }
 
@@ -17,135 +22,161 @@ export default function LandingScreen() {
 
   return (
     <div className="land">
-      <div className="land__glow" aria-hidden="true">
-        <span className="g1" /><span className="g2" /><span className="g3" />
-      </div>
-
+      {/* Navigation */}
       <header className="land__nav">
-        <a href="/" className="land__brand" aria-label="CallVerse home">
-          <LogoMark />
-          <span className="display">CallVerse</span>
+        <a href="/" className="land__brand">
+          <LogoMark size={28} />
+          <span>CallVerse</span>
         </a>
-        <nav className="land__links mono" aria-label="Primary">
+        <nav className="land__links">
           <a href="#features">Features</a>
           <a href="#how">How it works</a>
           <a href="#download">Download</a>
         </nav>
-        <Link to={primaryHref} className="btn btn--primary land__navCta">
-          {user ? 'Open app' : 'Sign in'} <ArrowRight size={15} />
+        <Link to={primaryHref} className="btn btn--primary btn--compact land__navCta">
+          {user ? 'Open app' : 'Sign in'} <ArrowRight size={14} />
         </Link>
       </header>
 
-      {/* ===== Hero ===== */}
+      {/* Hero Section */}
       <section className="land__hero">
-        <div className="land__heroCopy animate-slideUp">
-          <span className="land__pill"><Zap size={12} /> Free · Encrypted · Peer-to-peer</span>
-          <h1 className="display land__h1">
-            Calls that feel<br /><span className="grad-text">present.</span>
+        <div className="land__heroCopy">
+          <div className="land__pill">
+            <ShieldCheck size={13} />
+            <span>End-to-End Encrypted · Peer-to-Peer</span>
+          </div>
+          <h1 className="land__h1">
+            Private calling,<br />made simple.
           </h1>
           <p className="land__sub">
-            CallVerse connects you face-to-face with crystal-clear video and voice over a direct
-            peer-to-peer line. No servers in the middle of your conversation. No data harvested. Ever.
+            CallVerse connects you face-to-face with crystal-clear video and audio directly over WebRTC. 
+            No tracking, no logs, and no phone numbers required.
           </p>
           <div className="land__ctas">
             <Link to={primaryHref} className="btn btn--primary btn--lg">
-              {user ? 'Open CallVerse' : 'Start calling free'} <ArrowRight size={16} />
+              {user ? 'Open Dashboard' : 'Start Calling Free'} <ArrowRight size={16} />
             </Link>
-            <a href="#download" className="btn btn--secondary btn--lg"><Smartphone size={16} /> Get the APK</a>
+            <a href="#download" className="btn btn--secondary btn--lg">
+              <Smartphone size={16} /> Download Android APK
+            </a>
           </div>
-          <div className="land__metaRow mono">
-            <span><Lock size={12} /> End-to-end encrypted</span>
-            <span><Globe size={12} /> Works on web &amp; Android</span>
-            <span><Copy size={12} /> One-tap invite codes</span>
+          <div className="land__metaRow">
+            <span><Lock size={13} /> DTLS-SRTP Encryption</span>
+            <span><Globe size={13} /> Web &amp; Android</span>
+            <span><Zap size={13} /> Zero Latency</span>
           </div>
         </div>
 
-        <div className="land__visual animate-scaleUp" aria-hidden="true">
+        {/* Hero Visual Mock */}
+        <div className="land__visual">
           <div className="land__phone">
             <div className="land__phoneNotch" />
             <div className="land__callCard">
-              <div className="land__callTop mono"><span className="land__liveDot" /> connected · 04:21</div>
-              <div className="land__avatarRow">
-                <div className="land__avatar a1">A</div>
-                <div className="land__avatarRing r1" />
+              <div className="land__callTop">
+                <span className="land__liveDot" /> Connected · 04:21
               </div>
-              <p className="land__callerName">Amelia</p>
-              <p className="mono land__encLine"><ShieldCheck size={11} /> E2E encrypted · P2P</p>
+              <div className="land__avatarRow">
+                <div className="land__avatar">A</div>
+              </div>
+              <div className="land__callerName">Amelia</div>
+              <div className="land__encLine">
+                <ShieldCheck size={12} /> Direct P2P Line
+              </div>
               <div className="land__controls">
-                <button className="lc on" tabIndex={-1}><Video size={17} /></button>
-                <button className="lc" tabIndex={-1}><Phone size={17} /></button>
-                <button className="lc lc--end" tabIndex={-1}>✕</button>
+                <div className="lc lc--active"><Video size={16} /></div>
+                <div className="lc"><Phone size={16} /></div>
+                <div className="lc lc--end"><Phone size={16} style={{ transform: 'rotate(135deg)' }} /></div>
               </div>
             </div>
-            <div className="land__chip chip1 mono"><Star size={10} fill="#EC4899" color="#EC4899" /> buddy online</div>
-            <div className="land__chip chip2 mono"><ShieldCheck size={10} /> ~48ms connect</div>
+            <div className="land__chip chip1"><Star size={11} fill="var(--accent)" color="var(--accent)" /> Buddy Online</div>
+            <div className="land__chip chip2"><ShieldCheck size={11} /> ~48ms Connect</div>
           </div>
         </div>
       </section>
 
-      {/* ===== Features ===== */}
+      {/* Features Grid */}
       <section id="features" className="land__section">
-        <p className="label">Why CallVerse</p>
-        <h2 className="display land__h2">Private by design,<br />simple by choice.</h2>
+        <div className="land__sectionHead">
+          <span className="label">Capabilities</span>
+          <h2 className="land__h2">Engineered for clarity and privacy.</h2>
+        </div>
         <div className="land__grid">
-          <article className="land__card">
-            <div className="land__icon"><ShieldCheck size={20} /></div>
-            <h3>End-to-end encrypted</h3>
-            <p>Media flows directly between devices over WebRTC with DTLS-SRTP. Your calls are never stored or routed through our servers.</p>
-          </article>
-          <article className="land__card">
-            <div className="land__icon land__icon--pink"><Phone size={20} /></div>
-            <h3>HD video &amp; voice</h3>
-            <p>Adaptive quality keeps calls smooth on any network — switch between voice and video mid-call, flip cameras, and route audio to speaker or earpiece.</p>
-          </article>
-          <article className="land__card">
-            <div className="land__icon"><Users size={20} /></div>
-            <h3>Friends, not phone books</h3>
-            <p>Add people by username or a 24-hour invite code. Star your closest contacts as buddies and they always rise to the top.</p>
-          </article>
-          <article className="land__card">
-            <div className="land__icon land__icon--pink"><Smartphone size={20} /></div>
-            <h3>Built for Android</h3>
-            <p>A lightweight APK with native ringtone support, push notifications for incoming calls, and deep links that open calls instantly.</p>
-          </article>
+          <div className="land__card">
+            <div className="land__icon"><Lock size={18} /></div>
+            <h3>End-to-End Encrypted</h3>
+            <p>Media flows directly between devices over WebRTC with DTLS-SRTP. Calls are never stored on servers.</p>
+          </div>
+          <div className="land__card">
+            <div className="land__icon"><Video size={18} /></div>
+            <h3>HD Video &amp; Voice</h3>
+            <p>Adaptive bitrate keeps calls smooth. Switch between speaker and earpiece seamlessly on Android.</p>
+          </div>
+          <div className="land__card">
+            <div className="land__icon"><Users size={18} /></div>
+            <h3>Friends, Not Numbers</h3>
+            <p>Connect using unique @usernames or 24-hour invite codes. Keep your personal phone number private.</p>
+          </div>
+          <div className="land__card">
+            <div className="land__icon"><Smartphone size={18} /></div>
+            <h3>Native Android App</h3>
+            <p>Lightweight APK with background lock-screen notifications, custom ringtones, and instant call pickup.</p>
+          </div>
         </div>
       </section>
 
-      {/* ===== How it works ===== */}
-      <section id="how" className="land__section land__section--tight">
-        <p className="label">How it works</p>
-        <h2 className="display land__h2">Three taps to talk.</h2>
-        <ol className="land__steps">
-          <li>
-            <span className="mono">01</span>
-            <div><h3>Create your handle</h3><p>Sign up with email or Google and pick a unique @username.</p></div>
-          </li>
-          <li>
-            <span className="mono">02</span>
-            <div><h3>Share your invite code</h3><p>A rotating 24-hour code lets friends find you — no phone number needed.</p></div>
-          </li>
-          <li>
-            <span className="mono">03</span>
-            <div><h3>Tap voice or video</h3><p>When the dot turns green, your friend is one tap away. That's it.</p></div>
-          </li>
-        </ol>
-      </section>
-
-      {/* ===== Download / CTA ===== */}
-      <section id="download" className="land__cta">
-        <LogoMark size={56} />
-        <h2 className="display">Ready when you are.</h2>
-        <p>Free forever for person-to-person calls. Install the Android APK or call straight from your browser.</p>
-        <div className="land__ctas land__ctas--center">
-          <a href="/CallVerse-latest.apk" download className="btn btn--primary btn--lg"><Smartphone size={16} /> Download APK</a>
-          <Link to={primaryHref} className="btn btn--secondary btn--lg">{user ? 'Open app' : 'Use in browser'} <ArrowRight size={16} /></Link>
+      {/* How it Works */}
+      <section id="how" className="land__section">
+        <div className="land__sectionHead">
+          <span className="label">Workflow</span>
+          <h2 className="land__h2">Three taps to talk.</h2>
         </div>
-        <p className="mono land__tiny">v1.0 · WebRTC · DTLS-SRTP encryption</p>
+        <div className="land__steps">
+          <div className="land__step">
+            <span className="land__stepNum">01</span>
+            <h3>Create your handle</h3>
+            <p>Sign in with email or Google and claim your unique, lowercase @username.</p>
+          </div>
+          <div className="land__step">
+            <span className="land__stepNum">02</span>
+            <h3>Share your invite code</h3>
+            <p>Give your 24-hour invite code to your friends or family to link accounts.</p>
+          </div>
+          <div className="land__step">
+            <span className="land__stepNum">03</span>
+            <h3>Tap to connect</h3>
+            <p>When the status dot turns green, tap voice or video to begin your direct call.</p>
+          </div>
+        </div>
       </section>
 
+      {/* Download / CTA Box */}
+      <section id="download" className="land__section">
+        <div className="land__ctaCard">
+          <LogoMark size={44} />
+          <h2 className="land__ctaTitle">Ready when you are.</h2>
+          <p className="land__ctaSub">
+            Free forever for direct person-to-person calls. Install the Android APK or call directly from your browser.
+          </p>
+          <div className="land__ctas">
+            <a href="/CallVerse-latest.apk" download className="btn btn--primary btn--lg">
+              <Smartphone size={16} /> Download APK
+            </a>
+            <Link to={primaryHref} className="btn btn--secondary btn--lg">
+              {user ? 'Open Web App' : 'Use in Browser'} <ArrowRight size={16} />
+            </Link>
+          </div>
+          <div className="land__ctaBadge mono">
+            v1.0 · P2P WebRTC · Android &amp; Web
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
       <footer className="land__footer">
-        <span className="mono">© 2026 CallVerse — private calling, crafted.</span>
-        <button onClick={() => navigate(primaryHref)} className="land__footLink mono">Sign in →</button>
+        <div>© 2026 CallVerse. End-to-end encrypted private calling.</div>
+        <button onClick={() => navigate(primaryHref)} className="land__footLink">
+          {user ? 'Dashboard →' : 'Sign in →'}
+        </button>
       </footer>
     </div>
   );
