@@ -472,8 +472,8 @@ app.post('/api/history', async (req, res) => {
 
 // ── Call Lifecycle API ──────────────────────────────────────────
 
-app.post('/api/calls/accept/:callId', (req, res) => {
-  const { callId } = req.params;
+// Accept call - supports both POST (from app) and GET (from notification action)
+const handleCallAccept = (callId, res) => {
   if (!callId) return res.status(400).json({ error: 'Missing callId' });
 
   const call = activeCalls.get(callId);
@@ -489,7 +489,10 @@ app.post('/api/calls/accept/:callId', (req, res) => {
     sendFcmMessage(call.targetId, { action: 'cancel_call', callId }).catch(console.error);
   }
   res.json({ success: true });
-});
+};
+
+app.post('/api/calls/accept/:callId', (req, res) => handleCallAccept(req.params.callId, res));
+app.get('/api/calls/accept/:callId', (req, res) => handleCallAccept(req.params.callId, res));
 
 app.get('/api/calls/validate/:callId', (req, res) => {
   const call = activeCalls.get(req.params.callId);
@@ -497,8 +500,8 @@ app.get('/api/calls/validate/:callId', (req, res) => {
   res.json({ status: call.status.toUpperCase(), call });
 });
 
-app.post('/api/calls/decline', (req, res) => {
-  const { callId } = req.body;
+// Decline call - supports both POST (from app) and GET (from notification action)
+const handleCallDecline = (callId, res) => {
   if (!callId) return res.status(400).json({ error: 'Missing callId' });
   
   const call = activeCalls.get(callId);
@@ -522,7 +525,10 @@ app.post('/api/calls/decline', (req, res) => {
     sendFcmMessage(call.targetId, { action: 'cancel_call', callId }).catch(console.error);
   }
   res.json({ success: true });
-});
+};
+
+app.post('/api/calls/decline', (req, res) => handleCallDecline(req.body?.callId, res));
+app.get('/api/calls/decline/:callId', (req, res) => handleCallDecline(req.params.callId, res));
 
 // ── Socket.IO Presence & Signaling ──────────────────────────────
 
@@ -670,13 +676,19 @@ io.on('connection', (socket) => {
         const cSocket = onlineUsers.get(callerId);
         if (cSocket) io.to(cSocket).emit('call-missed', { callId });
 
-        // Send cancel push
+        // Send missed call push notification (triggers native missed call UI)
         try {
           const userRes = await db.execute({ sql: 'SELECT fcm_token FROM users WHERE id = ?', args: [targetId] });
           const fcmToken = userRes.rows[0]?.fcm_token;
           if (fcmToken) {
             await getMessaging().send({
-              data: { action: 'cancel_call', callId: callId },
+              data: { 
+                action: 'missed_call', 
+                callId: callId,
+                callerId: callerId,
+                callerName: callerData?.username || 'Someone',
+                callType: callerData?.type || 'video'
+              },
               android: { priority: 'high' },
               token: fcmToken
             });

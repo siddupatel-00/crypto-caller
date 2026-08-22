@@ -205,8 +205,9 @@ export default function CallScreen() {
   const handleEndCall = () => {
     console.log(`[Signaling Log] End Call button pressed.`);
     sessionStorage.setItem(callLaunchKey, 'true');
+    // Do NOT navigate here — the 'ended' state logs history first,
+    // then auto-navigates back after the summary overlay.
     endCall();
-    navigate('/dashboard', { replace: true });
   };
   const handleAccept = () => {
     console.log(`[Signaling Log] User B pressed Accept call button.`);

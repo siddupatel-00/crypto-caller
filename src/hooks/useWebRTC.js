@@ -667,7 +667,6 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
       }
       setCallEndReason('declined');
       setCallStatus('ended');
-      alert('Call was declined or user is busy.');
     });
 
     socket.on('call-failed', (data) => {
@@ -687,7 +686,6 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
       }
       setCallEndReason('missed');
       setCallStatus('ended');
-      alert(data.reason || 'Call failed');
     });
 
     socket.on('offer', (data) => {

@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import AuthScreen from './components/AuthScreen';
+import LandingScreen from './components/LandingScreen';
 import DashboardScreen from './components/DashboardScreen';
 import CallScreen from './components/CallScreen';
 import FriendProfileScreen from './components/FriendProfileScreen';
+import SplashScreen from './components/SplashScreen';
 import useStore from './store';
 import { auth } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -11,7 +13,7 @@ import { SERVER_URL } from './utils/socket';
 import socket from './utils/socket';
 import usePushNotifications from './hooks/usePushNotifications';
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import './App.css'; // Force Vercel Build Trigger
+import './App.css';
 
 const Ringtone = registerPlugin('Ringtone');
 
@@ -20,6 +22,8 @@ function App() {
   const setUser = useStore((state) => state.setUser);
   const theme = useStore((state) => state.theme);
   const [authLoading, setAuthLoading] = useState(true);
+  const [splashDone, setSplashDone] = useState(false);
+  const handleSplashComplete = useCallback(() => setSplashDone(true), []);
 
   // Initialize Push Notifications
   usePushNotifications();
@@ -42,14 +46,12 @@ function App() {
       if (!socket.connected) {
         socket.connect();
       } else {
-        // Socket already connected — register immediately
         socket.emit('register', { userId: user.id, fcmToken: useStore.getState().fcmToken });
       }
     }
   }, [user]);
 
-  // Global incoming-call listener — catches the server's pending-call re-sync
-  // even if DashboardScreen hasn't mounted yet (e.g. app opened from notification)
+  // Global incoming-call listener
   useEffect(() => {
     const handleIncomingCall = (data) => {
       console.log('[App] Global incoming-call received:', data);
@@ -57,8 +59,6 @@ function App() {
         console.log('[App] Ignoring self incoming-call');
         return;
       }
-      // Only navigate if we aren't already on the call screen for this caller.
-      // This prevents overwriting the autoAccept=true parameter from the native deep link.
       if (!window.location.pathname.startsWith(`/call/${data.callerId}`)) {
         navigate(`/call/${data.callerId}?incoming=true&callerName=${data.callerData?.username || 'Someone'}&type=${data.callerData?.type || 'video'}&callId=${data.callId}`);
       }
@@ -67,7 +67,7 @@ function App() {
     return () => socket.off('incoming-call', handleIncomingCall);
   }, [navigate, user]);
 
-  // Listen for Deep Links from Android Native Accept Action and Hardware Back Button
+  // Deep Links & Back Button
   useEffect(() => {
     import('@capacitor/app').then(({ App: CapacitorApp }) => {
       CapacitorApp.addListener('appUrlOpen', data => {
@@ -78,7 +78,6 @@ function App() {
       });
       CapacitorApp.addListener('backButton', ({ canGoBack }) => {
         if (window.location.pathname.startsWith('/call/')) {
-          // Never go back to a call screen — always exit to dashboard
           navigate('/dashboard', { replace: true });
         } else if (window.location.pathname === '/dashboard' || window.location.pathname === '/') {
           CapacitorApp.exitApp();
@@ -91,7 +90,7 @@ function App() {
     }).catch(console.error);
   }, [navigate]);
 
-  // Restore session on refresh using Firebase's built-in persistence
+  // Restore session
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser && !user) {
@@ -118,15 +117,9 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  if (authLoading) {
-    return (
-      <div className="app" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <div style={{ textAlign: 'center', color: '#8b5cf6' }}>
-          <div style={{ width: 40, height: 40, border: '3px solid rgba(139,92,246,0.3)', borderTop: '3px solid #8b5cf6', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
-          <p style={{ opacity: 0.7 }}>Loading...</p>
-        </div>
-      </div>
-    );
+  // Wait for both auth check and splash animation
+  if (authLoading || !splashDone) {
+    return <SplashScreen onComplete={handleSplashComplete} />;
   }
 
   return (
@@ -134,6 +127,10 @@ function App() {
       <Routes>
         <Route 
           path="/" 
+          element={user ? <Navigate to="/dashboard" /> : <LandingScreen />} 
+        />
+        <Route 
+          path="/login" 
           element={user ? <Navigate to="/dashboard" /> : <AuthScreen />} 
         />
         <Route 

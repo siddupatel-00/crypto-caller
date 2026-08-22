@@ -53,7 +53,7 @@ export default function AuthScreen(){
       <div className="auth__left">
         <div className="auth__brand">
           <div className="auth__wordmark">
-            <img src="/logo.png" alt="" style={{width:28,height:28,objectFit:'contain'}} onError={e=>e.currentTarget.style.display='none'} />
+            <a href="/" aria-label="Back to home"><img src="/logo.png" alt="" style={{width:28,height:28,objectFit:'contain'}} onError={e=>e.currentTarget.style.display='none'} /></a>
             <span className="display">CallVerse</span>
             <span className="mono auth__mono">— 2026</span>
           </div>
@@ -78,6 +78,7 @@ export default function AuthScreen(){
 
       <div className="auth__right">
         <div className="auth__card">
+          <a href="/" className="mono auth__back">← Back</a>
           <div className="auth__cardHead">
             <div className="auth__eyebrow"><Sparkles size={12}/><span className="mono">{isResetting ? 'Reset' : isRegistering ? 'Create account' : 'Welcome back'}</span></div>
             <h2 className="auth__title">{isResetting ? 'Reset password' : isRegistering ? 'Create your account' : 'Sign in'}</h2>
@@ -107,7 +108,12 @@ export default function AuthScreen(){
             <>
               <div className="auth__divider"><span className="hr" /><span className="mono">or</span><span className="hr" /></div>
               <button onClick={handleGoogle} className="btn btn--secondary" disabled={loading}>
-                <span style={{width:16,height:16,borderRadius:4,background:'#fff',display:'grid',placeItems:'center',fontSize:10,fontWeight:800,color:'#111'}}>G</span>
+                <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true" style={{flexShrink:0}}>
+                  <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.3 6.1 29.4 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.7-.4-3.9z"/>
+                  <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.3 6.1 29.4 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+                  <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
+                  <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C41.4 34.9 44 30 44 24c0-1.3-.1-2.7-.4-3.9z"/>
+                </svg>
                 Continue with Google
               </button>
               <p className="auth__toggle mono">{isRegistering ? 'Already have an account?' : "Don't have an account?"} <button onClick={()=>{clear();setIsRegistering(v=>!v);}} className="auth__link" style={{display:'inline'}}>{isRegistering ? 'Sign in' : 'Sign up'}</button></p>

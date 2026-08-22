@@ -75,8 +75,7 @@ export default function DashboardScreen({ initialTab='friends' }){
     socket._callverseUserId=user.id;
     fetchFriends(); fetchHistory();
     socket.on('friend-request',fetchFriends); socket.on('friends-updated',fetchFriends); socket.on('user-status-changed',fetchFriends);
-    socket.on('incoming-call',data=>{navigate(`/call/${data.callerId}?incoming=true&callerName=${data.callerData?.username||'Someone'}&type=${data.callerData?.type||'video'}&callId=${data.callId}&t=${Date.now()}`);});
-    return()=>{socket.off('friend-request');socket.off('friends-updated');socket.off('user-status-changed');socket.off('incoming-call'); ringtoneSynth.stop();};
+    return()=>{socket.off('friend-request');socket.off('friends-updated');socket.off('user-status-changed'); ringtoneSynth.stop();};
   },[user]);
 
   const handleAddFriend=async(e)=>{e.preventDefault(); if(!addInput.trim()) return; try{const r=await fetch(`${SERVER_URL}/api/friends/request`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:user.id,target:addInput})}); const d=await r.json(); if(d.error) showToast(d.error); else{showToast('Request sent'); setAddInput(''); fetchFriends();}}catch{showToast('Failed to send');}};

@@ -58,11 +58,11 @@
   --color-amber-900: #78350f;
 
   /* ===== Semantic Colors (Dark Theme Default) ===== */
-  --bg-canvas: #0a0a0f;
-  --bg-surface: #12121a;
-  --bg-surface-elevated: #1a1a2e;
-  --bg-surface-hover: #1e1e30;
-  --bg-surface-active: #252540;
+  --bg-canvas: #0b0812;
+  --bg-surface: #141020;
+  --bg-surface-elevated: #1b1529;
+  --bg-surface-hover: #231b36;
+  --bg-surface-active: #2b2144;
 
   --bg-glass: rgba(255, 255, 255, 0.04);
   --bg-glass-strong: rgba(255, 255, 255, 0.08);
@@ -175,7 +175,7 @@
 
 /* ===== Light Theme ===== */
 [data-theme="light"] {
-  --bg-canvas: #f8fafc;
+  --bg-canvas: #faf8ff;
   --bg-surface: #ffffff;
   --bg-surface-elevated: #f1f5f9;
   --bg-surface-hover: #e2e8f0;

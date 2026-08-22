@@ -11,21 +11,100 @@ export default function usePushNotifications() {
   const user = useStore(state => state.user);
   const navigate = useNavigate();
 
+  // Register listeners exactly once, with proper cleanup
   useEffect(() => {
-    if (Capacitor.isNativePlatform()) {
-      if (user?.id) {
-        Ringtone.setCurrentUser({ userId: user.id }).catch(console.error);
-      }
-      registerPush();
-    }
-  }, [user]);
+    if (!Capacitor.isNativePlatform()) return undefined;
 
-  const registerPush = async () => {
-    try {
-      const permStatus = await PushNotifications.requestPermissions();
-      if (permStatus.receive === 'granted') {
+    const listeners = [
+      PushNotifications.addListener('registration', (token) => {
+        console.log('FCM Push registration success, token: ' + token.value);
+        useStore.getState().setFcmToken(token.value);
+        const currentUser = useStore.getState().user;
+        if (currentUser?.id) {
+          Ringtone.setCurrentUser({ userId: currentUser.id }).catch(console.error);
+        }
+        socket._callverseFcmToken = token.value;
+        if (socket.connected && currentUser) {
+          socket.emit('update-fcm-token', token.value);
+        }
+      }),
+      PushNotifications.addListener('registrationError', (error) => {
+        console.error('Error on registration: ', JSON.stringify(error));
+      }),
+      PushNotifications.addListener('pushNotificationReceived', (notification) => {
+        const data = notification?.data || {};
+        const currentUserId = useStore.getState().user?.id;
+
+        if (data.callerId && currentUserId && data.callerId === currentUserId) {
+          console.log('Ignoring push notification from self');
+          return;
+        }
+
+        if (data.action === 'missed_call') {
+          console.log('Missed call notification received in foreground:', data);
+          return;
+        }
+
+        console.log('Push received in foreground:', notification);
+      }),
+      PushNotifications.addListener('pushNotificationActionPerformed', async (notification) => {
+        console.log('Push action performed: ', notification);
+        const data = notification?.notification?.data || {};
+        const currentUserId = useStore.getState().user?.id;
+
+        if (data.callerId && currentUserId && data.callerId === currentUserId) {
+          console.log('Ignoring push action from self');
+          return;
+        }
+
+        if (data.action === 'call_answer' && data.callId) {
+          if (socket.connected) {
+            socket.emit('call-accept', { callId: data.callId });
+          }
+          navigate(`/call/${data.callerId}?incoming=true&callId=${data.callId}&type=${data.callType || 'video'}&callerName=${data.callerName || 'Someone'}&autoAccept=true&t=${Date.now()}`);
+          return;
+        }
+
+        if (data.action === 'call_decline' && data.callId) {
+          if (socket.connected) {
+            socket.emit('call-decline', { callId: data.callId });
+          }
+          return;
+        }
+
+        if (data.action === 'incoming_call' && data.callId) {
+          navigate(`/call/${data.callerId}?incoming=true&callId=${data.callId}&type=${data.callType || 'video'}&callerName=${data.callerName || 'Someone'}&t=${Date.now()}`);
+          return;
+        }
+
+        if (data.action === 'missed_call') {
+          navigate('/history');
+        }
+      }),
+    ];
+
+    return () => {
+      listeners.forEach(l => l.remove());
+    };
+  }, [navigate]);
+
+  // Request permissions / create channels when a user logs in
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    if (user?.id) {
+      Ringtone.setCurrentUser({ userId: user.id }).catch(console.error);
+    }
+
+    (async () => {
+      try {
+        const permStatus = await PushNotifications.requestPermissions();
+        if (permStatus.receive !== 'granted') {
+          console.log('Push notification permission denied');
+          return;
+        }
         await PushNotifications.register();
-        
+
         if (Capacitor.getPlatform() === 'android') {
           await PushNotifications.createChannel({
             id: 'calls',
@@ -35,55 +114,18 @@ export default function usePushNotifications() {
             visibility: 1,
             vibration: true,
           });
+          await PushNotifications.createChannel({
+            id: 'missed_calls',
+            name: 'Missed Calls',
+            description: 'Notifications for missed calls',
+            importance: 3,
+            visibility: 1,
+            vibration: false,
+          });
         }
-      } else {
-        console.log('Push notification permission denied');
+      } catch (e) {
+        console.error('Error requesting push permissions', e);
       }
-    } catch (e) {
-      console.error('Error requesting push permissions', e);
-    }
-
-    PushNotifications.addListener('registration', (token) => {
-      console.log('FCM Push registration success, token: ' + token.value);
-      useStore.getState().setFcmToken(token.value);
-      const currentUser = useStore.getState().user;
-      if (currentUser?.id && Capacitor.isNativePlatform()) {
-        Ringtone.setCurrentUser({ userId: currentUser.id }).catch(console.error);
-      }
-      if (socket.connected && currentUser) {
-        socket.emit('update-fcm-token', token.value);
-      }
-    });
-
-    PushNotifications.addListener('registrationError', (error) => {
-      console.error('Error on registration: ', JSON.stringify(error));
-    });
-
-    PushNotifications.addListener('pushNotificationReceived', (notification) => {
-      // Notification received while app is in foreground — suppress it.
-      // The DashboardScreen's incoming-call socket listener handles in-app calls.
-      const currentUserId = useStore.getState().user?.id;
-      if (notification?.data?.callerId && currentUserId && notification.data.callerId === currentUserId) {
-        console.log('Ignoring push notification from self');
-        return;
-      }
-      console.log('Push received in foreground (suppressed): ', notification);
-    });
-
-    PushNotifications.addListener('pushNotificationActionPerformed', async (notification) => {
-      console.log('Push action performed: ', notification);
-      const data = notification.notification.data;
-      const currentUserId = useStore.getState().user?.id;
-      if (data?.callerId && currentUserId && data.callerId === currentUserId) {
-        console.log('Ignoring push action from self');
-        return;
-      }
-
-      if (data && data.action === 'incoming_call' && data.callId) {
-        // User tapped the notification — navigate to the call screen
-        // No autoAccept: user will answer/decline in the app UI
-        navigate(`/call/${data.callerId}?incoming=true&callId=${data.callId}&type=${data.callType || 'video'}&callerName=${data.callerName || 'Someone'}&t=${Date.now()}`);
-      }
-    });
-  };
+    })();
+  }, [user]);
 }
