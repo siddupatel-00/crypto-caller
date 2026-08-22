@@ -1,6 +1,7 @@
 package com.callverse.app;
 
 import android.content.Context;
+import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.os.Build;
@@ -21,7 +22,7 @@ public class AudioRoutePlugin extends Plugin {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private boolean routeActive = false;
     private boolean wantSpeaker = false;
-    private AudioManager.AudioDeviceCallback deviceCallback;
+    private AudioDeviceCallback deviceCallback;
 
     private AudioManager am() {
         return (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
@@ -105,7 +106,7 @@ public class AudioRoutePlugin extends Plugin {
 
     private void registerDeviceCallback() {
         if (deviceCallback != null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
-        deviceCallback = new AudioManager.AudioDeviceCallback() {
+        deviceCallback = new AudioDeviceCallback() {
             @Override
             public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) { reassert(); }
             @Override

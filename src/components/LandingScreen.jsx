@@ -41,7 +41,7 @@ export default function LandingScreen() {
         <div className="land__heroCopy animate-slideUp">
           <span className="land__pill"><Zap size={12} /> Free · Encrypted · Peer-to-peer</span>
           <h1 className="display land__h1">
-            Calls that feel<br /><em className="grad-text">present.</em>
+            Calls that feel<br /><span className="grad-text">present.</span>
           </h1>
           <p className="land__sub">
             CallVerse connects you face-to-face with crystal-clear video and voice over a direct

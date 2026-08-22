@@ -62,7 +62,7 @@ export default function AuthScreen(){
 
         <div className="auth__hero">
           <p className="label" style={{marginBottom:16}}>Private calling, crafted</p>
-          <h1 className="display auth__h1">Calls that<br/><em>feel</em> present.</h1>
+          <h1 className="display auth__h1">Calls that<br/><span className="grad-text">feel present.</span></h1>
           <p className="auth__sub">End-to-end encrypted. Peer-to-peer. No data harvested. Built for people who care about how things feel.</p>
           <div className="auth__stats">
             <div><span className="display auth__num">~48ms</span><span className="mono">median connect</span></div>
@@ -73,7 +73,7 @@ export default function AuthScreen(){
           </div>
         </div>
 
-        <div className="auth__footer mono">UI · 01 — No orbs. No glass. Just type, hairlines, and intent.</div>
+        <div className="auth__footer mono">⚡ Powered by WebRTC · End-to-End Encrypted</div>
       </div>
 
       <div className="auth__right">
