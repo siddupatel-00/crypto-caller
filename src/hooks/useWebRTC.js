@@ -67,6 +67,7 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
   const callEndedRef = useRef(false);
   const pendingCandidatesRef = useRef([]);
   const pendingOfferRef = useRef(null);
+  const speakerPrefRef = useRef(initialCallType !== 'voice');
 
   const drainPendingCandidates = async (pcInstance) => {
     const pc = pcInstance || peerConnection.current;
@@ -116,6 +117,11 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
       logClientSignal('iceConnectionState', 'STATE', pc.iceConnectionState);
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
         setCallStatus('connected');
+        // Audio is now actually flowing — re-assert the chosen output route,
+        // because WebView/Android tends to reset routing when playback starts.
+        if (Capacitor.isNativePlatform()) {
+          AudioRoute.setSpeaker({ useSpeaker: speakerPrefRef.current }).catch(e => console.error('[AudioRoute] re-assert failed:', e));
+        }
         // Log WebRTC parameters upon successful connection
         console.log('[WebRTC Debug] Connection established. Logging Peer parameters:');
         console.log('- Senders:', pc.getSenders().map(s => `track:${s.track ? s.track.kind : 'null'} active:${s.track ? s.track.enabled : 'false'}`));
@@ -477,14 +483,23 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
 
   const toggleSpeaker = useCallback(async () => {
     const newState = !isLoudspeakerOn;
+    speakerPrefRef.current = newState;
     // Optimistically update UI
     setIsLoudspeakerOn(newState);
 
     // Native Android route via AudioManager
     if (Capacitor.isNativePlatform()) {
       try {
-        await AudioRoute.setSpeaker({ useSpeaker: newState });
-        console.log(`[AudioRoute] Switched to ${newState ? 'SPEAKER' : 'EARPIECE'}`);
+        const res = await AudioRoute.setSpeaker({ useSpeaker: newState });
+        // The plugin reports the route it actually locked in — trust that, not hope.
+        const actualSpeaker = res?.using === 'speaker';
+        if (res?.ok === false) {
+          console.warn('[AudioRoute] setSpeaker failed, reverting UI');
+          setIsLoudspeakerOn(!newState);
+        } else if (actualSpeaker !== newState) {
+          setIsLoudspeakerOn(actualSpeaker);
+        }
+        console.log(`[AudioRoute] Switched to ${res?.using || 'unknown'} (requested ${newState ? 'SPEAKER' : 'EARPIECE'})`);
       } catch (e) {
         console.error('[AudioRoute] setSpeaker failed:', e);
         // revert on failure

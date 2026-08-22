@@ -115,7 +115,7 @@ export default function DashboardScreen({ initialTab='friends' }){
           <div className="dash__sheet" onClick={e=>e.stopPropagation()}>
             <div className="dash__sheetIcon"><Sparkles size={18}/></div>
             <h2 className="display" style={{fontSize:26, marginBottom:8}}>Welcome to CallVerse</h2>
-            <p style={{color:'var(--text-2)', fontSize:13, lineHeight:1.6}}>Invite code lives for 24 hours. Add friends, wait for online dot, call. That’s it.</p>
+            <p style={{color:'var(--text-2)', fontSize:15, lineHeight:1.6}}>Invite code lives for 24 hours. Add friends, wait for online dot, call. That’s it.</p>
             <div className="dash__steps">
               <div className="dash__step"><span>01</span><p>Copy your invite code and share it.</p></div>
               <div className="dash__step"><span>02</span><p>Accept requests — buddies rise to top.</p></div>
@@ -130,12 +130,12 @@ export default function DashboardScreen({ initialTab='friends' }){
           <div className="dash__sheet" onClick={e=>e.stopPropagation()} style={{maxWidth:460}}>
             <button className="dash__close" onClick={()=>setShowProfileModal(false)}><X size={14}/></button>
             {isProfileLoading ? <div style={{padding:40, textAlign:'center', color:'var(--text-2)'}}><RotateCw size={20} className="spin" style={{margin:'0 auto 10px', display:'block'}}/>Loading…</div>
-            : profileError ? <div style={{padding:24, textAlign:'center'}}><AlertCircle size={20} style={{margin:'0 auto 8px', display:'block'}}/><p style={{fontSize:13, color:'var(--text-2)'}}>{profileError}</p><button className="btn btn--secondary" style={{marginTop:12}} onClick={fetchProfile}>Retry</button></div>
+            : profileError ? <div style={{padding:24, textAlign:'center'}}><AlertCircle size={20} style={{margin:'0 auto 8px', display:'block'}}/><p style={{fontSize:15, color:'var(--text-2)'}}>{profileError}</p><button className="btn btn--secondary" style={{marginTop:12}} onClick={fetchProfile}>Retry</button></div>
             : <>
               <div style={{textAlign:'center', marginBottom:18}}>
                 <div className="dash__avatarLg">{(profileStats?.username||user?.username||'U').charAt(0).toUpperCase()}</div>
-                <div style={{fontWeight:700, fontSize:16}}>@{profileStats?.username||user?.username}</div>
-                <div className="mono" style={{fontSize:11, color:'var(--text-3)', marginTop:4}}>{formatJoined(profileStats?.created_at||user?.created_at)}</div>
+                <div className="row-name" style={{fontSize:'var(--fs-modal-name, 18px)'}}>@{profileStats?.username||user?.username}</div>
+                <div className="mono row-meta" style={{marginTop:4}}>{formatJoined(profileStats?.created_at||user?.created_at)}</div>
               </div>
               <div className="dash__stats3">
                 <div><span className="mono labelSm">Friends</span><b>{profileStats?.friends_count ?? friends.length}</b></div>
@@ -145,8 +145,8 @@ export default function DashboardScreen({ initialTab='friends' }){
               <div style={{marginTop:16, border:'1px solid var(--line)', borderRadius:12, padding:14}}>
                 <div className="label" style={{marginBottom:10}}>Most talked with</div>
                 {profileStats?.top_friends?.length ? profileStats.top_friends.map((f,i)=>(
-                  <div key={f.id||i} className="dash__topRow"><span className="mono" style={{fontSize:11, color:'var(--text-3)'}}>0{i+1}</span><div className="dash__avatarSm">{(f.alias||f.username||'?').charAt(0).toUpperCase()}</div><div style={{flex:1, minWidth:0}}><div style={{fontSize:13, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{f.alias||f.username}</div>{f.alias && <div className="mono" style={{fontSize:11, color:'var(--text-3)'}}>@{f.username}</div>}</div><span className="mono" style={{fontSize:12, color:'var(--accent)'}}>{formatTalk(f.lifetime_talk_seconds||0)}</span></div>
-                )) : <div className="mono" style={{fontSize:12, color:'var(--text-3)', textAlign:'center', padding:12}}>No calls yet</div>}
+                  <div key={f.id||i} className="dash__topRow"><span className="mono count-pill">0{i+1}</span><div className="dash__avatarSm">{(f.alias||f.username||'?').charAt(0).toUpperCase()}</div><div style={{flex:1, minWidth:0}}><div className="row-name" style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{f.alias||f.username}</div>{f.alias && <div className="mono row-meta">@{f.username}</div>}</div><span className="talk-time">{formatTalk(f.lifetime_talk_seconds||0)}</span></div>
+                )) : <div className="mono row-meta" style={{textAlign:'center', padding:12}}>No calls yet</div>}
               </div>
               <div style={{display:'flex', gap:8, marginTop:16}}><button className="btn btn--primary" style={{flex:1}} onClick={()=>{setShowProfileModal(false); navigate('/settings');}}>Change username</button><button className="btn btn--ghost" onClick={()=>setShowProfileModal(false)}>Close</button></div>
             </>}
@@ -176,7 +176,7 @@ export default function DashboardScreen({ initialTab='friends' }){
       <div className="dash__main" ref={mainRef} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}>
         <div className={`dash__pull ${isRefreshing?'is-refreshing':''} ${isPulling?'is-pulling':''}`} style={{transform:`translateY(${isRefreshing?12: Math.max(0,pullDistance-34)}px)`, opacity: isRefreshing?1: Math.min(Math.max(0,(pullDistance-10)/36),1)}}>
           <span className={`dash__pullIcon ${isRefreshing?'spin':''}`}><RotateCw size={14}/></span>
-          <span className="mono" style={{fontSize:11}}>{isRefreshing?'Refreshing…': pullDistance>=58?'Release': 'Pull'}</span>
+          <span className="mono count-pill">{isRefreshing?'Refreshing…': pullDistance>=58?'Release': 'Pull'}</span>
         </div>
 
         <header className="dash__header">
@@ -199,21 +199,21 @@ export default function DashboardScreen({ initialTab='friends' }){
             <div className="stack">
               {requests.length>0 && (
                 <section className="panel">
-                  <div className="panel__head"><span className="label">Requests</span><span className="mono" style={{fontSize:11, color:'var(--text-3)'}}>{requests.length}</span></div>
+                  <div className="panel__head"><span className="label">Requests</span><span className="mono count-pill">{requests.length}</span></div>
                   <div className="panel__list">
                     {requests.map(r=>(
-                      <div key={r.id} className="row">
-                        <div className="row__left"><span className="dash__avatarSm">{r.username.charAt(0).toUpperCase()}</span><span style={{fontWeight:600, fontSize:13}}>{r.username}</span><span className="mono" style={{fontSize:11, color:'var(--text-3)'}}>@{r.username}</span></div>
-                        <div className="row__actions"><button className="btn btn--primary" style={{padding:'7px 12px', fontSize:12}} onClick={()=>handleAccept(r.id)}><Check size={12}/> Accept</button><button className="btn btn--ghost" style={{padding:'7px 12px', fontSize:12}} onClick={()=>handleDecline(r.id)}><X size={12}/> Decline</button></div>
+                      <div key={r.id} className="row row--request">
+                        <div className="row__left"><span className="dash__avatarSm">{r.username.charAt(0).toUpperCase()}</span><span className="row-name">{r.username}</span><span className="mono row-meta">@{r.username}</span></div>
+                        <div className="row__actions"><button className="btn btn--primary btn--compact" onClick={()=>handleAccept(r.id)}><Check size={14}/> Accept</button><button className="btn btn--ghost btn--compact" onClick={()=>handleDecline(r.id)}><X size={14}/> Decline</button></div>
                       </div>
                     ))}
                   </div>
                 </section>
               )}
               <section className="panel">
-                <div className="panel__head"><span className="label">Directory</span><span className="mono" style={{fontSize:11, color:'var(--text-3)'}}>{sortedFriends.length}</span></div>
+                <div className="panel__head"><span className="label">Directory</span><span className="mono count-pill">{sortedFriends.length}</span></div>
                 {sortedFriends.length===0 ? (
-                  <div className="empty"><Users size={20} strokeWidth={1.5}/><p className="display" style={{fontSize:18}}>No one yet</p><span className="mono" style={{fontSize:12, color:'var(--text-3)'}}>Add a friend with their username or 24h code.</span><button className="btn btn--secondary" onClick={()=>navigate('/addfriend')}>Add friend</button></div>
+                  <div className="empty"><Users size={20} strokeWidth={1.5}/><p className="display" style={{fontSize:18}}>No one yet</p><span className="mono desc-mono">Add a friend with their username or 24h code.</span><button className="btn btn--secondary" onClick={()=>navigate('/addfriend')}>Add friend</button></div>
                 ) : (
                   <div className="panel__list">
                     {sortedFriends.map(f=>(
@@ -221,8 +221,8 @@ export default function DashboardScreen({ initialTab='friends' }){
                         <div className="row__left">
                           <span className="dash__avatarSm" style={{position:'relative'}}>{(f.alias||f.username).charAt(0).toUpperCase()}<span className={`dash__dot ${f.isOnline?'is-on':''}`} /></span>
                           <div style={{minWidth:0}}>
-                            <div style={{display:'flex', alignItems:'center', gap:6}}><span style={{fontWeight:600, fontSize:13}}>{f.alias||f.username}</span>{f.is_buddy && <Star size={11} fill="#FFB224" color="#FFB224"/>}<span className={`mono status ${f.isOnline?'is-online':''}`} style={{fontSize:10}}>{f.isOnline?'online':'offline'}</span></div>
-                            {f.alias && <div className="mono" style={{fontSize:11, color:'var(--text-3)'}}>@{f.username}</div>}
+                            <div style={{display:'flex', alignItems:'center', gap:6, flexWrap:'wrap'}}><span className="row-name">{f.alias||f.username}</span>{f.is_buddy && <Star size={13} fill="#FFB224" color="#FFB224"/>}<span className={`mono status ${f.isOnline?'is-online':''}`}>{f.isOnline?'online':'offline'}</span></div>
+                            {f.alias && <div className="mono row-meta">@{f.username}</div>}
                           </div>
                         </div>
                         <div className="row__actions" onClick={e=>e.stopPropagation()}>
@@ -241,9 +241,9 @@ export default function DashboardScreen({ initialTab='friends' }){
           {activeTab==='add-friend' && (
             <section className="panel" style={{maxWidth:560}}>
               <div className="panel__head"><span className="label">Add friend</span></div>
-              <p className="mono" style={{fontSize:12, color:'var(--text-2)', lineHeight:1.6, marginBottom:14}}>Enter exact username or 24-hour invite code. Request is instant if they’re online.</p>
+              <p className="desc-mono" style={{marginBottom:14}}>Enter exact username or 24-hour invite code. Request is instant if they’re online.</p>
               <form onSubmit={handleAddFriend} className="stackSm">
-                <div className="field__wrap"><Hash size={14}/><input placeholder="username or 8-char code" value={addInput} onChange={e=>setAddInput(e.target.value)} style={{flex:1}}/><span className="mono" style={{fontSize:11, color:'var(--text-3)'}}>{addInput.length}/24</span></div>
+                <div className="field__wrap"><Hash size={14}/><input placeholder="username or 8-char code" value={addInput} onChange={e=>setAddInput(e.target.value)} style={{flex:1}}/><span className="mono count-pill">{addInput.length}/24</span></div>
                 <button type="submit" className="btn btn--primary" disabled={!addInput.trim()}><UserPlus size={14}/> Send request</button>
               </form>
             </section>
@@ -252,12 +252,12 @@ export default function DashboardScreen({ initialTab='friends' }){
           {activeTab==='history' && (
             <section className="panel">
               <div className="panel__head"><span className="label">History</span><div className="seg">{['all','missed','incoming','outgoing'].map(k=> <button key={k} className={`seg__btn ${historyFilter===k?'is-active':''}`} onClick={()=>setHistoryFilter(k)}>{k}</button>)}</div></div>
-              {filteredHistory.length===0 ? <div className="empty"><Clock size={20}/><p className="mono" style={{fontSize:12, color:'var(--text-3)'}}>No {historyFilter} calls</p></div>
+              {filteredHistory.length===0 ? <div className="empty"><Clock size={20}/><p className="mono desc-mono">No {historyFilter} calls</p></div>
               : <div className="timeline">
                 {filteredHistory.map(c=>(
                   <div key={c.id} className="tRow">
-                    <div className="tRow__left"><span className={`tDot ${c.status!=='completed'?'is-missed': c.type==='incoming'?'is-in':'is-out'}`}><Phone size={10}/></span><div><div style={{fontSize:13, fontWeight:600}}>{c.other_user_alias||c.other_user}</div><div className="mono" style={{fontSize:11, color: c.status!=='completed'?'var(--danger)':'var(--text-3)'}}>{c.status==='completed'? c.type==='incoming'?'Incoming':'Outgoing' : c.status==='declined'?'Declined': c.status==='missed'?'Missed':'Not answered'} {c.status==='completed' ? `· ${Math.floor(c.duration/60)}:${String(c.duration%60).padStart(2,'0')}`:''} · {formatDistanceToNow(new Date(c.timestamp*1000),{addSuffix:true})}</div></div></div>
-                    <span className="mono" style={{fontSize:11, color:'var(--text-3)'}}>{format(new Date(c.timestamp*1000),'HH:mm')}</span>
+                    <div className="tRow__left"><span className={`tDot ${c.status!=='completed'?'is-missed': c.type==='incoming'?'is-in':'is-out'}`}><Phone size={11}/></span><div><div className="row-name">{c.other_user_alias||c.other_user}</div><div className={`mono row-meta ${c.status!=='completed'?'is-danger':''}`}>{c.status==='completed'? c.type==='incoming'?'Incoming':'Outgoing' : c.status==='declined'?'Declined': c.status==='missed'?'Missed':'Not answered'} {c.status==='completed' ? `· ${Math.floor(c.duration/60)}:${String(c.duration%60).padStart(2,'0')}`:''} · {formatDistanceToNow(new Date(c.timestamp*1000),{addSuffix:true})}</div></div></div>
+                    <span className="mono row-meta">{format(new Date(c.timestamp*1000),'HH:mm')}</span>
                   </div>
                 ))}
               </div>}
@@ -271,7 +271,7 @@ export default function DashboardScreen({ initialTab='friends' }){
                 <div className="stackSm">
                   <div className="kv"><span className="mono labelSm">Current</span><span style={{fontWeight:700}}>@{user?.username}</span></div>
                   <form onSubmit={handleUpdateUsername} className="stackSm">
-                    <label className="field"><span className="label">New username</span><div className="field__wrap"><span className="mono" style={{fontSize:12, color:'var(--text-3)'}}>@</span><input placeholder="new handle" value={newUsername} onChange={e=>{setNewUsername(e.target.value.toLowerCase().replace(/\s+/g,'')); if(usernameError) setUsernameError(''); if(usernameSuccess) setUsernameSuccess('');}} maxLength={30} /><span className="mono" style={{fontSize:11, color:'var(--text-3)'}}>{newUsername.length}/30</span></div><span className="mono" style={{fontSize:11, color:'var(--text-3)'}}>3-30 · a-z 0-9 . _</span></label>
+                    <label className="field"><span className="label">New username</span><div className="field__wrap"><span className="mono count-pill">@</span><input placeholder="new handle" value={newUsername} onChange={e=>{setNewUsername(e.target.value.toLowerCase().replace(/\s+/g,'')); if(usernameError) setUsernameError(''); if(usernameSuccess) setUsernameSuccess('');}} maxLength={30} /><span className="mono count-pill">{newUsername.length}/30</span></div><span className="mono row-meta">3-30 · a-z 0-9 . _</span></label>
                     {usernameError && <div className="alert alert--error"><AlertCircle size={12}/>{usernameError}</div>}
                     {usernameSuccess && <div className="alert alert--success"><CheckCircle2 size={12}/>{usernameSuccess}</div>}
                     <button type="submit" disabled={isUpdatingUsername||!newUsername.trim()|| newUsername.trim()===user?.username} className="btn btn--primary" style={{alignSelf:'flex-start'}}>{isUpdatingUsername?<><RotateCw size={12} className="spin"/>Updating…</>:<><Check size={12}/>Update</>}</button>
@@ -287,7 +287,7 @@ export default function DashboardScreen({ initialTab='friends' }){
                     </select>
                   </div>
                   <div className="kv"><span className="mono labelSm">Invite code</span><button className="dash__invite" onClick={copyInvite}><Hash size={12}/><span className="mono">{user?.invite_code}</span>{copied?<Check size={12}/>:<Copy size={12}/>}</button></div>
-                  <p className="mono" style={{fontSize:11, color:'var(--text-3)'}}>Expires in 24h. Copy and share.</p>
+                  <p className="mono row-meta">Expires in 24h. Copy and share.</p>
                 </div>
               </section>
               <section className="panel">

@@ -37,6 +37,9 @@
             </intent-filter>
         </service>
 
+        <!-- Handles Answer / Decline buttons on incoming-call notifications -->
+        <receiver android:name=".CallActionReceiver" android:exported="false" />
+
 
 
         <provider

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { SERVER_URL } from '../utils/socket';
 import socket from '../utils/socket';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Mic, MicOff, Video, VideoOff, Volume2, VolumeX, PhoneOff, PhoneCall, Lock, Phone, SwitchCamera } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, Volume2, PhoneOff, PhoneCall, Lock, Phone, SwitchCamera } from 'lucide-react';
 import useWebRTC from '../hooks/useWebRTC';
 import useStore from '../store';
 import { ringtoneSynth } from '../utils/ringtone';
@@ -371,7 +371,7 @@ export default function CallScreen() {
               title={isLoudspeakerOn ? 'Speaker ON (tap for earpiece)' : 'Earpiece ON (tap for speaker)'}
               aria-label={isLoudspeakerOn ? 'Switch to earpiece' : 'Switch to loudspeaker'}
             >
-              {isLoudspeakerOn ? <Volume2 size={24} /> : <VolumeX size={24} />}
+              {isLoudspeakerOn ? <Volume2 size={24} /> : <Phone size={22} />}
             </button>
             <button className="call-control-btn call-control-btn--end" onClick={handleEndCall}>
               <PhoneOff size={24} />

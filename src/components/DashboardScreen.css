@@ -113,22 +113,37 @@
   .empty svg{width:56px; height:56px}
 }
 
+.status{font-size:10.5px; text-transform:lowercase}
+@media (max-width:640px){
+  .status{font-size:12.5px}
+}
+
 /* Touch-friendly minimum sizes for ALL mobile */
 @media (max-width: 600px){
-  .dash__avatarSm{width:42px; height:42px}
+  .dash__h1{font-size:28px}
+  .dash__count{font-size:14px}
+  .dash__toast{font-size:14.5px; padding:16px 20px}
+  .dash__stats3 b{font-size:18px}
+  .alert{font-size:14px}
+  .dash__avatarSm{width:46px; height:46px; font-size:15px}
   .dash__railBtn{width:56px; height:56px}
+  .dash__badge{min-width:22px; height:22px; font-size:12px}
   .iconBtn{width:48px; height:48px}
   .iconBtn--accent{width:56px; height:56px; font-size:15px; padding:0 16px; border-radius:14px; display:inline-flex; gap:8px}
   .row__actions{display:flex; gap:10px}
   .seg__btn{padding:14px 22px; font-size:15px; min-height:48px}
   .dash__invite{font-size:14px; padding:12px 16px}
   .dash__search input{font-size:16px} /* prevent zoom on iOS */
-  .tDot{width:36px; height:36px}
+  .tDot{width:38px; height:38px}
   .select{font-size:16px; padding:14px 16px} /* prevent zoom on iOS */
   .check input{width:22px; height:22px}
-  .row{min-height:56px}
-  .tRow{min-height:56px}
-  .kv{min-height:52px}
+  .row{min-height:60px}
+  .tRow{min-height:60px}
+  .kv{min-height:54px}
   .dash__close{width:40px; height:40px}
   .dash__sheetIcon{width:48px; height:48px}
+  /* Requests: give Accept/Decline their own full-width line */
+  .row--request{flex-wrap:wrap}
+  .row--request .row__actions{width:100%; justify-content:stretch}
+  .row--request .btn--compact{flex:1; min-height:50px}
 }

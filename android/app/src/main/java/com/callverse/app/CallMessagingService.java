@@ -127,14 +127,21 @@ public class CallMessagingService extends FirebaseMessagingService {
         }).start();
     }
 
+    private Uri buildCallDeepLink(String callerId, String callId, String callerName, String callType, boolean autoAccept) {
+        return Uri.parse("callverse://call/" + (callerId != null ? callerId : "")
+                + "?incoming=true"
+                + "&autoAccept=" + autoAccept
+                + "&callId=" + (callId != null ? callId : "")
+                + "&type=" + (callType != null ? callType : "video")
+                + "&callerName=" + Uri.encode(callerName != null ? callerName : "Someone")
+                + "&t=" + System.currentTimeMillis());
+    }
+
     private void launchCallScreen(String callId, String callerId, String callerName, String callType, boolean autoAccept) {
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        intent.putExtra("callId", callId);
-        intent.putExtra("callerId", callerId);
-        intent.putExtra("callerName", callerName);
-        intent.putExtra("callType", callType);
-        intent.putExtra("autoAccept", autoAccept);
+        Intent intent = new Intent(Intent.ACTION_VIEW,
+                buildCallDeepLink(callerId, callId, callerName, callType, autoAccept));
+        intent.setClass(this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         startActivity(intent);
     }
 
@@ -175,42 +182,36 @@ public class CallMessagingService extends FirebaseMessagingService {
 
         int notifId = callId != null ? callId.hashCode() : (int) System.currentTimeMillis();
 
-        // --- Main tap intent: opens the app ---
-        Intent tapIntent = getPackageManager().getLaunchIntentForPackage(getPackageName());
-        if (tapIntent == null) {
-            tapIntent = new Intent(this, MainActivity.class);
-        }
-        tapIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        tapIntent.putExtra("callId", callId);
-        tapIntent.putExtra("callerId", callerId);
-        tapIntent.putExtra("callerName", callerName);
-        tapIntent.putExtra("callType", callType);
+        // --- Main tap intent: opens the app on the ringing call screen ---
+        Intent tapIntent = new Intent(Intent.ACTION_VIEW,
+                buildCallDeepLink(callerId, callId, callerName, callType, false));
+        tapIntent.setClass(this, MainActivity.class);
+        tapIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent tapPendingIntent = PendingIntent.getActivity(this, notifId, tapIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         // --- Full Screen Intent: opens directly over lock screen ---
-        Intent fullScreenIntent = new Intent(this, MainActivity.class);
-        fullScreenIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        fullScreenIntent.putExtra("callId", callId);
-        fullScreenIntent.putExtra("callerId", callerId);
-        fullScreenIntent.putExtra("callerName", callerName);
-        fullScreenIntent.putExtra("callType", callType);
-        fullScreenIntent.putExtra("autoAccept", false); // Let user decide in app
+        Intent fullScreenIntent = new Intent(Intent.ACTION_VIEW,
+                buildCallDeepLink(callerId, callId, callerName, callType, false));
+        fullScreenIntent.setClass(this, MainActivity.class);
+        fullScreenIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(this, notifId + 1, fullScreenIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         // --- ANSWER ACTION ---
-        Intent answerIntent = new Intent(this, CallMessagingService.class);
-        answerIntent.setAction(ACTION_ANSWER);
+        // Broadcast receiver: services cannot be started from the background
+        // on Android 8+, which is why these buttons previously did nothing.
+        Intent answerIntent = new Intent(this, CallActionReceiver.class);
+        answerIntent.setAction("call_answer");
         answerIntent.putExtra("callId", callId);
         answerIntent.putExtra("callerId", callerId);
         answerIntent.putExtra("callerName", callerName);
         answerIntent.putExtra("callType", callType);
-        PendingIntent answerPendingIntent = PendingIntent.getService(this, notifId + 2, answerIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent answerPendingIntent = PendingIntent.getBroadcast(this, notifId + 2, answerIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         // --- DECLINE ACTION ---
-        Intent declineIntent = new Intent(this, CallMessagingService.class);
-        declineIntent.setAction(ACTION_DECLINE);
+        Intent declineIntent = new Intent(this, CallActionReceiver.class);
+        declineIntent.setAction("call_decline");
         declineIntent.putExtra("callId", callId);
-        PendingIntent declinePendingIntent = PendingIntent.getService(this, notifId + 3, declineIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent declinePendingIntent = PendingIntent.getBroadcast(this, notifId + 3, declineIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         // Build notification with actions
         String typeLabel = (callType != null && callType.equals("voice")) ? "Voice" : "Video";

@@ -538,6 +538,36 @@ const onlineUsers = new Map();
 const socketToUser = new Map();
 // Map<callId, { callId, callerId, targetId, callerData, status, timestamp, timeoutId }>
 const activeCalls = new Map();
+// Buffer signaling messages for users whose socket hasn't (re)registered yet —
+// e.g. when they answer from a notification while the app is still cold-starting.
+// Map<userId, Array<{ event, payload, ts }>>
+const pendingDelivery = new Map();
+
+function deliverOrQueue(userId, event, payload) {
+  const sid = onlineUsers.get(userId);
+  if (sid) {
+    io.to(sid).emit(event, payload);
+    return;
+  }
+  let queue = pendingDelivery.get(userId);
+  if (!queue) { queue = []; pendingDelivery.set(userId, queue); }
+  queue.push({ event, payload, ts: Date.now() });
+  // Keep buffers small and fresh
+  while (queue.length > 60) queue.shift();
+}
+
+function flushPendingDelivery(userId, socketId) {
+  const queue = pendingDelivery.get(userId);
+  if (!queue || !queue.length) return;
+  pendingDelivery.delete(userId);
+  const fresh = queue.filter(m => Date.now() - m.ts < 120000); // drop stale (>2min)
+  fresh.forEach(({ event, payload }) => {
+    try { io.to(socketId).emit(event, payload); } catch (e) { console.error('flush error', e); }
+  });
+  if (fresh.length) {
+    console.log(`[Signaling] Flushed ${fresh.length} buffered signal(s) to ${userId} after re-register`);
+  }
+}
 
 const sendFcmMessage = async (targetUserId, payloadData) => {
   try {
@@ -600,6 +630,9 @@ io.on('connection', (socket) => {
 
       // Emit registration acknowledgment
       socket.emit('register-ack', { userId, timestamp: Date.now() });
+
+      // Deliver any signaling messages buffered while this user was offline/re-registering
+      flushPendingDelivery(userId, socket.id);
 
       // Sync pending active calls for this user
       for (const [callId, call] of activeCalls.entries()) {
@@ -767,10 +800,8 @@ io.on('connection', (socket) => {
     const call = activeCalls.get(callId);
     if (call) {
       const targetSocket = onlineUsers.get(call.targetId);
-      if (targetSocket) {
-        logSignal('offer', 'EMIT', callId, `target socket: ${targetSocket}`);
-        io.to(targetSocket).emit('offer', { callId, offer, from: call.callerId });
-      }
+      logSignal('offer', 'EMIT', callId, `target socket: ${targetSocket || 'QUEUED (not registered yet)'}`);
+      deliverOrQueue(call.targetId, 'offer', { callId, offer, from: call.callerId });
     }
   });
 
@@ -779,10 +810,8 @@ io.on('connection', (socket) => {
     const call = activeCalls.get(callId);
     if (call) {
       const targetSocket = onlineUsers.get(call.callerId);
-      if (targetSocket) {
-        logSignal('answer', 'EMIT', callId, `target socket: ${targetSocket}`);
-        io.to(targetSocket).emit('answer', { callId, answer, from: call.targetId });
-      }
+      logSignal('answer', 'EMIT', callId, `target socket: ${targetSocket || 'QUEUED (not registered yet)'}`);
+      deliverOrQueue(call.callerId, 'answer', { callId, answer, from: call.targetId });
     }
   });
 
@@ -800,11 +829,7 @@ io.on('connection', (socket) => {
 
     logSignal('ice-candidate', 'RECV', callId, `candidate for: ${targetId}`);
     if (targetId) {
-      const targetSocket = onlineUsers.get(targetId);
-      if (targetSocket) {
-        logSignal('ice-candidate', 'EMIT', callId, `target socket: ${targetSocket}`);
-        io.to(targetSocket).emit('ice-candidate', { callId, candidate, from: senderId });
-      }
+      deliverOrQueue(targetId, 'ice-candidate', { callId, candidate, from: senderId });
     }
   });
 
