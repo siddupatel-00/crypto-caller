@@ -48,6 +48,16 @@ function generateInviteCode() {
   return code;
 }
 
+async function generateUniqueInviteCode(retries = 5) {
+  for (let i = 0; i < retries; i++) {
+    const code = generateInviteCode();
+    const exists = await db.execute({ sql: 'SELECT 1 FROM users WHERE invite_code = ? LIMIT 1', args: [code] });
+    if (exists.rows.length === 0) return code;
+  }
+  // fallback: use uuid slice
+  return generateInviteCode() + Math.random().toString(36).slice(2, 4).toUpperCase();
+}
+
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 // Cleanup old history (older than 7 days)
@@ -80,12 +90,16 @@ app.post('/api/login', async (req, res) => {
     
     if (!user) {
       isNewUser = true;
-      const finalUsername = username ? username.trim().toLowerCase() : email.split('@')[0].toLowerCase();
+      let finalUsername = (username ? username.trim().toLowerCase() : (email || '').split('@')[0].toLowerCase()).replace(/[^a-z0-9_.]/g, '');
+      if (!finalUsername || finalUsername.length < 3) finalUsername = `user_${id.slice(0, 6)}`;
+      // ensure uniqueness
+      const uExists = await db.execute({ sql: 'SELECT 1 FROM users WHERE username = ? LIMIT 1', args: [finalUsername] });
+      if (uExists.rows.length) finalUsername = `${finalUsername}_${Math.random().toString(36).slice(2, 5)}`;
       
       user = {
         id,
         username: finalUsername,
-        invite_code: generateInviteCode(),
+        invite_code: await generateUniqueInviteCode(),
         code_expires_at: Date.now() + ONE_DAY_MS
       };
       await db.execute({
@@ -95,7 +109,7 @@ app.post('/api/login', async (req, res) => {
     } else {
       // Check if invite code expired
       if (Date.now() > user.code_expires_at) {
-        const newCode = generateInviteCode();
+        const newCode = await generateUniqueInviteCode();
         const newExpiry = Date.now() + ONE_DAY_MS;
         await db.execute({
           sql: 'UPDATE users SET invite_code = ?, code_expires_at = ? WHERE id = ?',
@@ -359,9 +373,25 @@ app.post('/api/friends/buddy', async (req, res) => {
   }
 });
 
-// Remove Friend
+// Remove Friend (supports DELETE with body AND POST fallback for clients that strip DELETE body)
 app.delete('/api/friends', async (req, res) => {
+  const userId = req.body?.userId || req.query?.userId;
+  const friendId = req.body?.friendId || req.query?.friendId;
+  if (!userId || !friendId) return res.status(400).json({ error: 'Missing userId/friendId' });
+  try {
+    await db.execute({
+      sql: 'DELETE FROM friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)',
+      args: [userId, friendId, friendId, userId]
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+app.post('/api/friends/remove', async (req, res) => {
   const { userId, friendId } = req.body;
+  if (!userId || !friendId) return res.status(400).json({ error: 'Missing fields' });
   try {
     await db.execute({
       sql: 'DELETE FROM friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)',
@@ -374,7 +404,23 @@ app.delete('/api/friends', async (req, res) => {
   }
 });
 
-// Get History
+// Decline friend request
+app.post('/api/friends/decline', async (req, res) => {
+  const { userId, friendId } = req.body;
+  if (!userId || !friendId) return res.status(400).json({ error: 'Missing fields' });
+  try {
+    await db.execute({
+      sql: 'DELETE FROM friends WHERE user_id = ? AND friend_id = ? AND status = ?',
+      args: [friendId, userId, 'pending']
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// Get History — fixed: avoid duplicate rows from OR join + de-duplicate
 app.get('/api/history/:userId', async (req, res) => {
   const { userId } = req.params;
   try {
@@ -382,15 +428,15 @@ app.get('/api/history/:userId', async (req, res) => {
       sql: `
         SELECT h.id, h.duration, h.timestamp, h.status,
                u.username as other_user,
-               f.alias as other_user_alias,
+               COALESCE(f.alias, '') as other_user_alias,
                CASE WHEN h.caller_id = ? THEN 'outgoing' ELSE 'incoming' END as type
         FROM call_history h
-        JOIN users u ON (CASE WHEN h.caller_id = ? THEN h.receiver_id ELSE h.caller_id END) = u.id
-        LEFT JOIN friends f ON (f.user_id = ? AND f.friend_id = u.id) OR (f.user_id = u.id AND f.friend_id = ?)
+        JOIN users u ON u.id = CASE WHEN h.caller_id = ? THEN h.receiver_id ELSE h.caller_id END
+        LEFT JOIN friends f ON f.user_id = ? AND f.friend_id = u.id
         WHERE h.caller_id = ? OR h.receiver_id = ?
         ORDER BY h.timestamp DESC
       `,
-      args: [userId, userId, userId, userId, userId, userId]
+      args: [userId, userId, userId, userId, userId]
     });
     
     res.json(historyRes.rows);

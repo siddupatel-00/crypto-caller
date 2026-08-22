@@ -20,7 +20,9 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-console.log("Firebase Config:", firebaseConfig);
+if (import.meta.env.DEV) {
+  console.log("Firebase Config loaded:", { projectId: firebaseConfig.projectId, authDomain: firebaseConfig.authDomain });
+}
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);

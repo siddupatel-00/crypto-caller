@@ -411,6 +411,8 @@
   pointer-events: none;
   transition: opacity 0.4s ease, transform 0.4s ease;
 }
+.call-controls--hidden { pointer-events: none; }
+.call-controls--visible { pointer-events: auto; }
 
 .call-controls--visible {
   opacity: 1;

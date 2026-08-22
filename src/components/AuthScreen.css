@@ -179,6 +179,8 @@
   border-radius: var(--radius-sm);
   margin-bottom: 16px;
   font-size: 14px;
+  text-align: left;
+  word-break: break-word;
 }
 
 .auth-success-msg {
@@ -189,4 +191,19 @@
   border-radius: var(--radius-sm);
   margin-bottom: 16px;
   font-size: 14px;
+}
+
+.auth-input-field:disabled,
+.google-btn:disabled,
+.home-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+@media (max-width: 480px) {
+  .auth-card {
+    padding: 28px 20px;
+  }
+  .auth-card h1 { font-size: 24px; }
 }

@@ -223,12 +223,35 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
     }
   };
 
+  // Keep remote audio output in sync whenever speaker preference changes (web)
+  useEffect(() => {
+    const el = remoteVideoRef.current;
+    if (!el || Capacitor.isNativePlatform()) return;
+    if (typeof el.setSinkId === 'function' && remoteStream) {
+      // re-apply sink when remoteStream changes or speaker toggles
+      (async () => {
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const outs = devices.filter(d => d.kind === 'audiooutput');
+          if (!outs.length) return;
+          let targetId = 'default';
+          if (isLoudspeakerOn) {
+            targetId = outs.find(d => d.label.toLowerCase().includes('speaker'))?.deviceId || 'default';
+          } else {
+            targetId = outs.find(d => d.label.toLowerCase().includes('earpiece'))?.deviceId || outs[0]?.deviceId || 'default';
+          }
+          await el.setSinkId(targetId);
+        } catch {}
+      })();
+    }
+  }, [isLoudspeakerOn, remoteStream]);
+
   const startMedia = async (type = 'video', forceFacingMode = null) => {
     console.log(`[WebRTC Debug] Requesting local media stream: type=${type}`);
     try {
       const mode = forceFacingMode || facingMode;
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         video: type === 'voice' ? false : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: mode },
       });
       
@@ -452,21 +475,55 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
     });
   }, []);
 
-  const toggleSpeaker = useCallback(() => {
-    setIsLoudspeakerOn(prev => {
-      const newState = !prev;
-      if (Capacitor.isNativePlatform()) {
-        AudioRoute.setSpeaker({ useSpeaker: newState }).catch(e => console.error(e));
+  const toggleSpeaker = useCallback(async () => {
+    const newState = !isLoudspeakerOn;
+    // Optimistically update UI
+    setIsLoudspeakerOn(newState);
+
+    // Native Android route via AudioManager
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await AudioRoute.setSpeaker({ useSpeaker: newState });
+        console.log(`[AudioRoute] Switched to ${newState ? 'SPEAKER' : 'EARPIECE'}`);
+      } catch (e) {
+        console.error('[AudioRoute] setSpeaker failed:', e);
+        // revert on failure
+        setIsLoudspeakerOn(!newState);
       }
-      return newState;
-    });
-  }, []);
+      return;
+    }
+
+    // Web fallback: try to route remote audio element via setSinkId (Chrome/Edge)
+    const el = remoteVideoRef.current;
+    if (el && typeof el.setSinkId === 'function') {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const outs = devices.filter(d => d.kind === 'audiooutput');
+        // Heuristic: default = loudspeaker on most desktops; first non-default often earpiece on mobiles
+        let targetId = 'default';
+        if (outs.length) {
+          if (newState) {
+            targetId = outs.find(d => d.label.toLowerCase().includes('speaker'))?.deviceId
+                    || outs.find(d => d.deviceId === 'default')?.deviceId || 'default';
+          } else {
+            targetId = outs.find(d => d.label.toLowerCase().includes('earpiece'))?.deviceId
+                    || outs.find(d => d.deviceId !== 'default')?.deviceId || 'default';
+          }
+        }
+        await el.setSinkId(targetId);
+        console.log(`[Web Audio] setSinkId -> ${targetId} (loudspeaker=${newState})`);
+      } catch (e) {
+        console.warn('[Web Audio] setSinkId failed, using volume fallback:', e);
+      }
+    } else {
+      console.log(`[Web Audio] Speaker toggle ${newState ? 'ON' : 'OFF'} (no setSinkId support — volume routing only)`);
+    }
+  }, [isLoudspeakerOn]);
 
   const flipCamera = useCallback(async () => {
     if (!localStreamRef.current || !peerConnection.current) return;
     
     const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
-    setFacingMode(newFacingMode);
     
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({
@@ -474,6 +531,7 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
       });
       
       const newVideoTrack = newStream.getVideoTracks()[0];
+      if (!newVideoTrack) throw new Error('No video track');
       const oldVideoTrack = localStreamRef.current.getVideoTracks()[0];
       
       if (oldVideoTrack) {
@@ -482,9 +540,12 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
       }
       
       localStreamRef.current.addTrack(newVideoTrack);
+      // preserve enabled state
+      newVideoTrack.enabled = isVideoOn;
       
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = localStreamRef.current;
+        try { await localVideoRef.current.play(); } catch {}
       }
 
       // Replace track on the peer connection
@@ -492,12 +553,13 @@ export default function useWebRTC(targetId, isIncoming = false, initialCallType 
       if (videoSender) {
         await videoSender.replaceTrack(newVideoTrack);
       }
+      // stop extra tracks from newStream (keep only video)
+      newStream.getAudioTracks().forEach(t => t.stop());
+      setFacingMode(newFacingMode);
     } catch (e) {
       console.error('[WebRTC Debug] Failed to flip camera:', e);
-      // Revert state if failed
-      setFacingMode(facingMode);
     }
-  }, [facingMode]);
+  }, [facingMode, isVideoOn]);
 
   const endCall = useCallback((reason = 'missed') => {
     // Prevent double-ending and block future re-initiation

@@ -69,8 +69,8 @@ function FriendProfileScreen() {
   const removeFriend = async () => {
     if (!window.confirm(`Are you sure you want to remove ${friend.alias || friend.username}?`)) return;
     try {
-      await fetch(`${SERVER_URL}/api/friends`, {
-        method: 'DELETE',
+      await fetch(`${SERVER_URL}/api/friends/remove`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, friendId: friend.id }),
       });
@@ -111,11 +111,11 @@ function FriendProfileScreen() {
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: friend.alias ? '0' : '16px', marginBottom: '30px' }}>
             <button 
-              onClick={() => startCall('audio')}
+              onClick={() => startCall('voice')}
               style={{ padding: '10px 24px', borderRadius: '24px', background: 'rgba(0, 217, 126, 0.15)', color: 'var(--success)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500', transition: 'all 0.2s' }}
             >
               <Phone size={18} />
-              Audio Call
+              Voice Call
             </button>
             <button 
               onClick={() => startCall('video')}

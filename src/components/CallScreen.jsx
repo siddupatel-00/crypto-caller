@@ -44,6 +44,7 @@ export default function CallScreen() {
   }, []);
 
   const [duration, setDuration] = useState(0);
+  const durationRef = useRef(0);
   const timerRef = useRef(null);
   const audioRef = useRef(null);
   const ringtoneEnabled = useStore(state => state.ringtoneEnabled);
@@ -119,31 +120,38 @@ export default function CallScreen() {
 
   const hasLoggedHistory = useRef(false);
 
-  // Timer & History logging
+  // Timer & History logging — durationRef fixes stale closure
   useEffect(() => {
     if (callStatus === 'connected') {
+      durationRef.current = 0;
       setDuration(0);
-      timerRef.current = setInterval(() => setDuration(prev => prev + 1), 1000);
+      timerRef.current = setInterval(() => {
+        durationRef.current += 1;
+        setDuration(durationRef.current);
+      }, 1000);
     } else if (callStatus === 'ended') {
       if (timerRef.current) clearInterval(timerRef.current);
       
       // Log history if we were the caller (to avoid duplicate logs)
-      if (!isIncoming && !hasLoggedHistory.current) {
+      if (!isIncoming && !hasLoggedHistory.current && user?.id) {
         hasLoggedHistory.current = true;
+        const finalDuration = durationRef.current;
+        const finalStatus = finalDuration > 0 ? 'completed' : (callEndReason || 'missed');
         fetch(`${SERVER_URL}/api/history`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ callerId: user.id, receiverId: targetId, duration, status: duration > 0 ? 'completed' : callEndReason })
+          body: JSON.stringify({ callerId: user.id, receiverId: targetId, duration: finalDuration, status: finalStatus })
         }).catch(console.error);
       }
-      setTimeout(() => {
-        sessionStorage.setItem(callLaunchKey, 'true');
+      const navTimeout = setTimeout(() => {
+        try { sessionStorage.setItem(callLaunchKey, 'true'); } catch(e) {}
         navigate('/dashboard', { replace: true });
-      }, 300);
+      }, 800);
+      return () => clearTimeout(navTimeout);
     }
 
-    return () => clearInterval(timerRef.current);
-  }, [callStatus]); // Removed duration from deps to avoid re-triggering, handled by ref
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [callStatus, callEndReason]);
 
   const ringtoneVolume = useStore(state => state.ringtoneVolume);
   const ringTimeout = useStore(state => state.ringTimeout);
@@ -353,8 +361,16 @@ export default function CallScreen() {
                 <SwitchCamera size={22} />
               </button>
             )}
-            <button className={`call-control-btn ${!isLoudspeakerOn ? 'call-control-btn--active' : ''}`} onClick={toggleSpeaker}>
-              {!isLoudspeakerOn ? <VolumeX size={24} /> : <Volume2 size={24} />}
+            <button 
+              className={`call-control-btn ${isLoudspeakerOn ? 'call-control-btn--active' : ''}`} 
+              onClick={async () => { 
+                await toggleSpeaker(); 
+                if (navigator.vibrate) try { navigator.vibrate(20); } catch {}
+              }}
+              title={isLoudspeakerOn ? 'Speaker ON (tap for earpiece)' : 'Earpiece ON (tap for speaker)'}
+              aria-label={isLoudspeakerOn ? 'Switch to earpiece' : 'Switch to loudspeaker'}
+            >
+              {isLoudspeakerOn ? <Volume2 size={24} /> : <VolumeX size={24} />}
             </button>
             <button className="call-control-btn call-control-btn--end" onClick={handleEndCall}>
               <PhoneOff size={24} />

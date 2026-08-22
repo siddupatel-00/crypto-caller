@@ -152,7 +152,7 @@ export default function AuthScreen() {
       
       <div className="auth-card glass-card animate-slideUp">
         <div className="auth-logo">
-          <img src="/logo.png" alt="CallVerse Logo" className="auth-logo-img" style={{ width: '64px', height: '64px', objectFit: 'contain', marginBottom: '12px' }} />
+          <img src="/logo.png" alt="CallVerse Logo" className="auth-logo-img" style={{ width: '64px', height: '64px', objectFit: 'contain', marginBottom: '12px' }} onError={(e) => e.currentTarget.style.display='none'} />
           <h1>CallVerse</h1>
         </div>
         

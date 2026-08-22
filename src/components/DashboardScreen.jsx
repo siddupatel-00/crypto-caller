@@ -42,10 +42,15 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
     setActiveTab(initialTab);
   }, [initialTab]);
 
+  const safeParse = (key, fallback) => {
+    try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
+  };
   // Load from local storage for instant perceived load (SWR pattern)
-  const [friends, setFriends] = useState(() => JSON.parse(localStorage.getItem('cache_friends') || '[]'));
-  const [requests, setRequests] = useState(() => JSON.parse(localStorage.getItem('cache_requests') || '[]'));
-  const [history, setHistory] = useState(() => JSON.parse(localStorage.getItem('cache_history') || '[]'));
+  const [friends, setFriends] = useState(() => safeParse('cache_friends', []));
+  const [requests, setRequests] = useState(() => safeParse('cache_requests', []));
+  const [history, setHistory] = useState(() => safeParse('cache_history', []));
+  const [toastMsg, setToastMsg] = useState('');
+  const showToast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); };
   const [historyFilter, setHistoryFilter] = useState('all');
   const [addInput, setAddInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -178,13 +183,15 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
         body: JSON.stringify({ userId: user.id, target: addInput }),
       });
       const data = await res.json();
-      if (data.error) alert(data.error);
+      if (data.error) showToast(data.error);
       else {
-        alert('Friend request sent!');
+        showToast('Friend request sent!');
         setAddInput('');
+        fetchFriends();
       }
     } catch (e) {
       console.error(e);
+      showToast('Failed to send request');
     }
   };
 
@@ -195,9 +202,27 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, friendId }),
       });
+      showToast('Friend added!');
       fetchFriends();
     } catch (e) {
       console.error(e);
+      showToast('Failed to accept');
+    }
+  };
+
+  const handleDeclineRequest = async (friendId) => {
+    try {
+      await fetch(`${SERVER_URL}/api/friends/decline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, friendId }),
+      });
+      showToast('Request declined');
+      fetchFriends();
+    } catch (e) {
+      // fallback: just hide locally if endpoint missing
+      setRequests(prev => prev.filter(r => r.id !== friendId));
+      showToast('Request declined');
     }
   };
 
@@ -210,10 +235,20 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
     navigate(`/call/${friendId}?type=${type}&t=${t}`);
   };
 
-  const copyInviteCode = () => {
-    navigator.clipboard.writeText(user.invite_code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const copyInviteCode = async () => {
+    const code = user?.invite_code || '';
+    try {
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(code);
+      else {
+        const el = document.createElement('textarea');
+        el.value = code; document.body.appendChild(el); el.select(); document.execCommand('copy'); el.remove();
+      }
+      setCopied(true);
+      showToast('Invite code copied!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      showToast('Copy failed');
+    }
   };
 
   const handleSignOut = async () => {
@@ -729,7 +764,7 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
                           <button className="action-btn accept" onClick={() => handleAcceptRequest(req.id)}>
                             <Check size={18} />
                           </button>
-                          <button className="action-btn decline">
+                          <button className="action-btn decline" onClick={() => handleDeclineRequest(req.id)}>
                             <X size={18} />
                           </button>
                         </div>
@@ -789,16 +824,19 @@ export default function DashboardScreen({ initialTab = 'friends' }) {
             </div>
           )}
 
+          {toastMsg && (
+            <div className="welcome-toast glass animate-slideUp" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+              <CheckCircle2 size={18} className="toast-icon" />
+              <span>{toastMsg}</span>
+            </div>
+          )}
           {activeTab === 'add-friend' && (
             <div className="add-friend-view animate-fadeIn glass-card" style={{ padding: '32px', maxWidth: '600px', margin: '0 auto' }}>
               <h2 style={{ marginBottom: '24px', fontSize: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>Add Friend</h2>
               <div style={{ background: 'var(--card-inner-bg)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)' }}>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '20px' }}>Enter your friend's exact username or their 24-hour invite code to send a request.</p>
                 
-                <form className="add-friend-form" onSubmit={(e) => {
-                  handleAddFriend(e);
-                  setActiveTab('friends'); // Optionally redirect back to friends after adding
-                }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <form className="add-friend-form" onSubmit={handleAddFriend} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <input 
                     type="text" 
                     placeholder="Username or 24h code..." 
