@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SERVER_URL } from '../utils/socket';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, Clock, Users, Phone, LogOut, Check, X, Copy, Sparkles, Smile, Settings, Video, Star, Trash2, Edit2, Calendar, RotateCw, Sun, Moon, Palette, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { UserPlus, Clock, Users, Phone, Check, X, Copy, Sparkles, Settings, Video, Star, Calendar, RotateCw, Sun, Moon, Palette, AlertCircle, CheckCircle2, Search, LogOut, Hash, ArrowUpRight } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import useStore from '../store';
 import socket from '../utils/socket';
@@ -12,1235 +12,304 @@ import './DashboardScreen.css';
 
 const Ringtone = registerPlugin('Ringtone');
 
-export default function DashboardScreen({ initialTab = 'friends' }) {
-  const user = useStore((state) => state.user);
-  const logout = useStore((state) => state.logout);
-  const navigate = useNavigate();
-  const ringTimeout = useStore((state) => state.ringTimeout);
-  const setRingTimeout = useStore((state) => state.setRingTimeout);
-  const ringtoneEnabled = useStore((state) => state.ringtoneEnabled);
-  const setRingtoneEnabled = useStore((state) => state.setRingtoneEnabled);
-  const theme = useStore((state) => state.theme);
-  const selectedRingtone = useStore((state) => state.selectedRingtone);
-  const setSelectedRingtone = useStore((state) => state.setSelectedRingtone);
-  const ringtoneVolume = useStore((state) => state.ringtoneVolume);
-  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+export default function DashboardScreen({ initialTab='friends' }){
+  const user=useStore(s=>s.user);
+  const logout=useStore(s=>s.logout);
+  const navigate=useNavigate();
+  const ringTimeout=useStore(s=>s.ringTimeout);
+  const setRingTimeout=useStore(s=>s.setRingTimeout);
+  const ringtoneEnabled=useStore(s=>s.ringtoneEnabled);
+  const setRingtoneEnabled=useStore(s=>s.setRingtoneEnabled);
+  const theme=useStore(s=>s.theme);
+  const selectedRingtone=useStore(s=>s.selectedRingtone);
+  const setSelectedRingtone=useStore(s=>s.setSelectedRingtone);
+  const ringtoneVolume=useStore(s=>s.ringtoneVolume);
+  const [isPreviewPlaying,setIsPreviewPlaying]=useState(false);
+  const [activeTab,setActiveTab]=useState(initialTab);
+  const mainRef=useRef(null);
+  const contentRef=useRef(null);
+  const [pullDistance,setPullDistance]=useState(0);
+  const [isRefreshing,setIsRefreshing]=useState(false);
+  const [isPulling,setIsPulling]=useState(false);
+  const touchY=useRef(0); const touchX=useRef(0); const canPull=useRef(false);
+  useEffect(()=>setActiveTab(initialTab),[initialTab]);
+  const safeParse=(k,f)=>{try{const v=localStorage.getItem(k); return v?JSON.parse(v):f;}catch{return f}};
+  const [friends,setFriends]=useState(()=>safeParse('cache_friends',[]));
+  const [requests,setRequests]=useState(()=>safeParse('cache_requests',[]));
+  const [history,setHistory]=useState(()=>safeParse('cache_history',[]));
+  const [toastMsg,setToastMsg]=useState(''); const showToast=m=>{setToastMsg(m); setTimeout(()=>setToastMsg(''),2800);};
+  const [historyFilter,setHistoryFilter]=useState('all');
+  const [addInput,setAddInput]=useState('');
+  const [searchQuery,setSearchQuery]=useState('');
+  const [copied,setCopied]=useState(false);
+  const [showWelcomePopup,setShowWelcomePopup]=useState(false);
+  const [welcomeToast,setWelcomeToast]=useState('');
+  const [showProfileModal,setShowProfileModal]=useState(false);
+  const [profileStats,setProfileStats]=useState(null);
+  const [isProfileLoading,setIsProfileLoading]=useState(false);
+  const [profileError,setProfileError]=useState('');
+  const [newUsername,setNewUsername]=useState('');
+  const [isUpdatingUsername,setIsUpdatingUsername]=useState(false);
+  const [usernameError,setUsernameError]=useState('');
+  const [usernameSuccess,setUsernameSuccess]=useState('');
 
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const fetchFriends=async()=>{try{const r=await fetch(`${SERVER_URL}/api/friends/${user.id}`); const d=await r.json(); setFriends(d.friends||[]); setRequests(d.requests||[]); localStorage.setItem('cache_friends',JSON.stringify(d.friends||[])); localStorage.setItem('cache_requests',JSON.stringify(d.requests||[]));}catch{}};
+  const fetchHistory=async()=>{try{const r=await fetch(`${SERVER_URL}/api/history/${user.id}`); const d=await r.json(); setHistory(d||[]); localStorage.setItem('cache_history',JSON.stringify(d||[]));}catch{}};
 
-  // Pull-to-refresh state & refs
-  const mainContentRef = useRef(null);
-  const contentAreaRef = useRef(null);
-  const [pullDistance, setPullDistance] = useState(0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isPulling, setIsPulling] = useState(false);
-  const touchStartY = useRef(0);
-  const touchStartX = useRef(0);
-  const canPull = useRef(false);
+  const sortedFriends=React.useMemo(()=>[...friends].sort((a,b)=>{
+    if(a.is_buddy&&!b.is_buddy) return -1; if(!a.is_buddy&&b.is_buddy) return 1;
+    if(a.isOnline===b.isOnline) return (a.alias||a.username).localeCompare(b.alias||b.username);
+    return a.isOnline?-1:1;
+  }).filter(f=>{if(!searchQuery) return true; const s=searchQuery.toLowerCase(); return (f.alias?.toLowerCase().includes(s)|| f.username.toLowerCase().includes(s));}),[friends,searchQuery]);
 
-  useEffect(() => {
-    setActiveTab(initialTab);
-  }, [initialTab]);
+  const filteredHistory=React.useMemo(()=>history.filter(c=>{
+    const t=(c.type||'').toLowerCase().trim(); const s=(c.status||'').toLowerCase().trim(); const f=(historyFilter||'').toLowerCase().trim();
+    if(f==='all') return true; if(f==='missed') return t==='incoming' && s!=='completed'; if(f==='incoming') return t==='incoming'&&s==='completed'; if(f==='outgoing') return t==='outgoing'&&s==='completed'; return false;
+  }),[history,historyFilter]);
 
-  const safeParse = (key, fallback) => {
-    try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
-  };
-  // Load from local storage for instant perceived load (SWR pattern)
-  const [friends, setFriends] = useState(() => safeParse('cache_friends', []));
-  const [requests, setRequests] = useState(() => safeParse('cache_requests', []));
-  const [history, setHistory] = useState(() => safeParse('cache_history', []));
-  const [toastMsg, setToastMsg] = useState('');
-  const showToast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); };
-  const [historyFilter, setHistoryFilter] = useState('all');
-  const [addInput, setAddInput] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [copied, setCopied] = useState(false);
-
-  // Welcome States
-  const [showWelcomePopup, setShowWelcomePopup] = useState(false);
-  const [welcomeToast, setWelcomeToast] = useState('');
-
-  // Profile Modal State
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [profileStats, setProfileStats] = useState(null);
-  const [isProfileLoading, setIsProfileLoading] = useState(false);
-  const [profileError, setProfileError] = useState('');
-
-  // Username Update State (Settings)
-  const [newUsername, setNewUsername] = useState('');
-  const [isUpdatingUsername, setIsUpdatingUsername] = useState(false);
-  const [usernameError, setUsernameError] = useState('');
-  const [usernameSuccess, setUsernameSuccess] = useState('');
-
-  // Friend Profile Modal
-  const [editAlias, setEditAlias] = useState('');
-
-  const fetchFriends = async () => {
-    try {
-      const res = await fetch(`${SERVER_URL}/api/friends/${user.id}`);
-      const data = await res.json();
-      setFriends(data.friends || []);
-      setRequests(data.requests || []);
-      localStorage.setItem('cache_friends', JSON.stringify(data.friends || []));
-      localStorage.setItem('cache_requests', JSON.stringify(data.requests || []));
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const fetchHistory = async () => {
-    try {
-      const res = await fetch(`${SERVER_URL}/api/history/${user.id}`);
-      const data = await res.json();
-      setHistory(data || []);
-      localStorage.setItem('cache_history', JSON.stringify(data || []));
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const sortedFriends = React.useMemo(() => {
-    return [...friends].sort((a, b) => {
-      // 1. Buddies first
-      if (a.is_buddy && !b.is_buddy) return -1;
-      if (!a.is_buddy && b.is_buddy) return 1;
-      // 2. Online status next
-      if (a.isOnline === b.isOnline) {
-        return (a.alias || a.username).localeCompare(b.alias || b.username);
-      }
-      return a.isOnline ? -1 : 1;
-    }).filter(f => {
-      if (!searchQuery) return true;
-      const s = searchQuery.toLowerCase();
-      return (f.alias?.toLowerCase().includes(s) || f.username.toLowerCase().includes(s));
-    });
-  }, [friends, searchQuery]);
-
-  const filteredHistory = React.useMemo(() => {
-    return history.filter(call => {
-      const type = (call.type || '').toLowerCase().trim();
-      const status = (call.status || '').toLowerCase().trim();
-      const filter = (historyFilter || '').toLowerCase().trim();
-
-      if (filter === 'all') return true;
-      if (filter === 'missed') return type === 'incoming' && status !== 'completed';
-      if (filter === 'incoming') return type === 'incoming' && status === 'completed';
-      if (filter === 'outgoing') return type === 'outgoing' && status === 'completed';
-      
-      // Failsafe: if nothing matches, return false so it doesn't show everything
-      return false;
-    });
-  }, [history, historyFilter]);
-
-  useEffect(() => {
-    if (!user) {
-      navigate('/');
-      return;
-    }
-
-    // Trigger Welcome Prompts
-    const welcomeType = localStorage.getItem('welcome_type');
-    if (welcomeType === 'popup') {
-      setShowWelcomePopup(true);
-    } else if (welcomeType === 'toast') {
-      setWelcomeToast(`Welcome back, ${user.username}! 👋`);
-      setTimeout(() => setWelcomeToast(''), 4000);
-    }
+  useEffect(()=>{
+    if(!user){navigate('/'); return;}
+    const wt=localStorage.getItem('welcome_type');
+    if(wt==='popup') setShowWelcomePopup(true); else if(wt==='toast'){setWelcomeToast(`Welcome back, ${user.username}`); setTimeout(()=>setWelcomeToast(''),3600);}
     localStorage.removeItem('welcome_type');
+    socket._callverseUserId=user.id;
+    fetchFriends(); fetchHistory();
+    socket.on('friend-request',fetchFriends); socket.on('friends-updated',fetchFriends); socket.on('user-status-changed',fetchFriends);
+    socket.on('incoming-call',data=>{navigate(`/call/${data.callerId}?incoming=true&callerName=${data.callerData?.username||'Someone'}&type=${data.callerData?.type||'video'}&callId=${data.callId}&t=${Date.now()}`);});
+    return()=>{socket.off('friend-request');socket.off('friends-updated');socket.off('user-status-changed');socket.off('incoming-call'); ringtoneSynth.stop();};
+  },[user]);
 
-    socket._callverseUserId = user.id;
-
-
-    fetchFriends();
-    fetchHistory();
-
-    socket.on('friend-request', fetchFriends);
-    socket.on('friends-updated', fetchFriends);
-    socket.on('user-status-changed', fetchFriends);
-    
-    socket.on('incoming-call', (data) => {
-      console.log(`[Signaling Log] [User B] Received 'incoming-call' event! data:`, data);
-      console.log(`[Signaling Log] [User B] Navigating to Call screen: /call/${data.callerId}?incoming=true...`);
-      navigate(`/call/${data.callerId}?incoming=true&callerName=${data.callerData?.username || 'Someone'}&type=${data.callerData?.type || 'video'}&callId=${data.callId}&t=${Date.now()}`);
-    });
-
-    return () => {
-      socket.off('friend-request');
-      socket.off('friends-updated');
-      socket.off('user-status-changed');
-      socket.off('incoming-call');
-      ringtoneSynth.stop();
-    };
-  }, [user]);
-
-  const handleAddFriend = async (e) => {
-    e.preventDefault();
-    if (!addInput.trim()) return;
-    try {
-      const res = await fetch(`${SERVER_URL}/api/friends/request`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, target: addInput }),
-      });
-      const data = await res.json();
-      if (data.error) showToast(data.error);
-      else {
-        showToast('Friend request sent!');
-        setAddInput('');
-        fetchFriends();
-      }
-    } catch (e) {
-      console.error(e);
-      showToast('Failed to send request');
-    }
+  const handleAddFriend=async(e)=>{e.preventDefault(); if(!addInput.trim()) return; try{const r=await fetch(`${SERVER_URL}/api/friends/request`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:user.id,target:addInput})}); const d=await r.json(); if(d.error) showToast(d.error); else{showToast('Request sent'); setAddInput(''); fetchFriends();}}catch{showToast('Failed to send');}};
+  const handleAccept=async(id)=>{try{await fetch(`${SERVER_URL}/api/friends/accept`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:user.id,friendId:id})}); showToast('Friend added'); fetchFriends();}catch{showToast('Failed');}};
+  const handleDecline=async(id)=>{try{await fetch(`${SERVER_URL}/api/friends/decline`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:user.id,friendId:id})}); showToast('Declined'); fetchFriends();}catch{setRequests(p=>p.filter(r=>r.id!==id)); showToast('Declined');}};
+  const startCall=(id,type)=>{const t=Date.now(); try{sessionStorage.removeItem(`call_ended_${id}`);sessionStorage.removeItem(`call_done_${id}`);}catch{} navigate(`/call/${id}?type=${type}&t=${t}`);};
+  const copyInvite=async()=>{const c=user?.invite_code||''; try{if(navigator.clipboard?.writeText) await navigator.clipboard.writeText(c); else{const el=document.createElement('textarea'); el.value=c; document.body.appendChild(el); el.select(); document.execCommand('copy'); el.remove();} setCopied(true); showToast('Code copied'); setTimeout(()=>setCopied(false),1800);}catch{showToast('Copy failed');}};
+  const handleSignOut=async()=>{try{await signOut(auth); logout(); navigate('/');}catch{}};
+  const togglePreview=t=>{if(isPreviewPlaying){ringtoneSynth.stop(); setIsPreviewPlaying(false);} else{ringtoneSynth.play(t,ringtoneVolume); setIsPreviewPlaying(true);}};
+  const formatJoined=ca=>{if(!ca) return 'Recently'; try{let d; const n=Number(ca); if(!isNaN(n)){d=n<1e11? new Date(n*1000):new Date(n);} else d=new Date(ca); if(isNaN(d.getTime())) return 'Recently'; return `Joined ${format(d,'MMMM yyyy')}`;}catch{return 'Recently';}};
+  const formatTalk=s=>{s=Math.max(0,Math.floor(Number(s)||0)); if(s<60) return `${s}s`; const h=Math.floor(s/3600), m=Math.floor((s%3600)/60); if(h) return `${h}h ${m}m`; const sec=s%60; return sec?`${m}m ${sec}s`:`${m}m`;};
+  const fetchProfile=async()=>{if(!user?.id) return; setIsProfileLoading(true); setProfileError(''); try{const r=await fetch(`${SERVER_URL}/api/user/profile/${user.id}`); const d=await r.json(); if(!r.ok||d.error) setProfileError(d.error||'Failed'); else setProfileStats(d);}catch{setProfileError('Network error');} finally{setIsProfileLoading(false);}};
+  const openProfile=()=>{setShowProfileModal(true); fetchProfile();};
+  const handleUpdateUsername=async(e)=>{
+    e.preventDefault(); const f=newUsername.trim().toLowerCase(); const rx=/^[a-z0-9_.]{3,30}$/;
+    if(!f) return setUsernameError('Please enter a username'); if(!rx.test(f)) return setUsernameError('3-30 chars: a-z, 0-9, ., _'); if(f===user?.username) return setUsernameError('Same as current');
+    setIsUpdatingUsername(true); setUsernameError(''); setUsernameSuccess('');
+    try{const r=await fetch(`${SERVER_URL}/api/user/update-username`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:user.id,newUsername:f})}); const d=await r.json(); if(!r.ok||d.error) setUsernameError(d.error||'Failed'); else{const u={...user,username:d.username}; useStore.getState().setUser(u); localStorage.setItem('callverse_user',JSON.stringify(u)); setUsernameSuccess(`Updated to @${d.username}`); setNewUsername(''); if(showProfileModal) fetchProfile();}}catch{setUsernameError('Network error');} finally{setIsUpdatingUsername(false);}
   };
+  const onTouchStart=e=>{if(isRefreshing) return; const st=(mainRef.current?.scrollTop||0)+(contentRef.current?.scrollTop||0); if(st<=0){canPull.current=true; touchY.current=e.touches[0].clientY; touchX.current=e.touches[0].clientX; } else canPull.current=false;};
+  const onTouchMove=e=>{if(!canPull.current||isRefreshing) return; const dy=e.touches[0].clientY-touchY.current; const dx=e.touches[0].clientX-touchX.current; if(Math.abs(dx)>Math.abs(dy)) return; const st=(mainRef.current?.scrollTop||0)+(contentRef.current?.scrollTop||0); if(st<=0&&dy>0){setPullDistance(Math.min(dy*0.42,78)); setIsPulling(true);} else if(pullDistance>0){setPullDistance(0); setIsPulling(false);}};
+  const onTouchEnd=async()=>{if(!canPull.current||isRefreshing) return; canPull.current=false; setIsPulling(false); if(pullDistance>=58){setIsRefreshing(true); setPullDistance(52); if(navigator.vibrate) try{navigator.vibrate(12);}catch{} try{await Promise.all([fetchFriends(),fetchHistory()]);}finally{setTimeout(()=>{setIsRefreshing(false); setPullDistance(0);},320);}} else setPullDistance(0);};
 
-  const handleAcceptRequest = async (friendId) => {
-    try {
-      await fetch(`${SERVER_URL}/api/friends/accept`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, friendId }),
-      });
-      showToast('Friend added!');
-      fetchFriends();
-    } catch (e) {
-      console.error(e);
-      showToast('Failed to accept');
-    }
-  };
-
-  const handleDeclineRequest = async (friendId) => {
-    try {
-      await fetch(`${SERVER_URL}/api/friends/decline`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, friendId }),
-      });
-      showToast('Request declined');
-      fetchFriends();
-    } catch (e) {
-      // fallback: just hide locally if endpoint missing
-      setRequests(prev => prev.filter(r => r.id !== friendId));
-      showToast('Request declined');
-    }
-  };
-
-  const startCall = (friendId, type) => {
-    const t = Date.now();
-    try {
-      sessionStorage.removeItem(`call_ended_${friendId}`);
-      sessionStorage.removeItem(`call_done_${friendId}`);
-    } catch (e) {}
-    navigate(`/call/${friendId}?type=${type}&t=${t}`);
-  };
-
-  const copyInviteCode = async () => {
-    const code = user?.invite_code || '';
-    try {
-      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(code);
-      else {
-        const el = document.createElement('textarea');
-        el.value = code; document.body.appendChild(el); el.select(); document.execCommand('copy'); el.remove();
-      }
-      setCopied(true);
-      showToast('Invite code copied!');
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      showToast('Copy failed');
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      logout();
-      navigate('/');
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const togglePreview = (tone) => {
-    if (isPreviewPlaying) {
-      ringtoneSynth.stop();
-      setIsPreviewPlaying(false);
-    } else {
-      ringtoneSynth.play(tone, ringtoneVolume);
-      setIsPreviewPlaying(true);
-    }
-  };
-
-  const formatJoinedDate = (createdAt) => {
-    if (!createdAt) return 'Joined recently';
-    try {
-      let date;
-      if (typeof createdAt === 'number' || (!isNaN(Number(createdAt)) && !isNaN(parseFloat(createdAt)))) {
-        const num = Number(createdAt);
-        date = num < 1e11 ? new Date(num * 1000) : new Date(num);
-      } else {
-        date = new Date(createdAt);
-      }
-      if (isNaN(date.getTime())) return 'Joined recently';
-      return `Joined ${format(date, 'MMMM d, yyyy')}`;
-    } catch (e) {
-      return 'Joined recently';
-    }
-  };
-
-  const formatTalkTime = (totalSeconds = 0) => {
-    const s = Math.max(0, Math.floor(Number(totalSeconds) || 0));
-    if (s < 60) return `${s}s`;
-    const hrs = Math.floor(s / 3600);
-    const mins = Math.floor((s % 3600) / 60);
-    const secs = s % 60;
-    if (hrs > 0) {
-      return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
-    }
-    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
-  };
-
-  const fetchProfileStats = async () => {
-    if (!user?.id) return;
-    setIsProfileLoading(true);
-    setProfileError('');
-    try {
-      const res = await fetch(`${SERVER_URL}/api/user/profile/${user.id}`);
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        setProfileError(data.error || 'Failed to load profile stats');
-      } else {
-        setProfileStats(data);
-      }
-    } catch (err) {
-      console.error('Error fetching profile stats:', err);
-      setProfileError('Failed to connect to server');
-    } finally {
-      setIsProfileLoading(false);
-    }
-  };
-
-  const openProfileModal = () => {
-    setShowProfileModal(true);
-    fetchProfileStats();
-  };
-
-  const handleUpdateUsername = async (e) => {
-    e.preventDefault();
-    const formatted = newUsername.trim().toLowerCase();
-    const usernameRegex = /^[a-z0-9_.]{3,30}$/;
-
-    if (!formatted) {
-      setUsernameError('Please enter a username');
-      return;
-    }
-    if (!usernameRegex.test(formatted)) {
-      setUsernameError('Username must be 3-30 characters (letters, numbers, ., _)');
-      return;
-    }
-    if (formatted === user?.username) {
-      setUsernameError('New username is the same as current username');
-      return;
-    }
-
-    setIsUpdatingUsername(true);
-    setUsernameError('');
-    setUsernameSuccess('');
-
-    try {
-      const res = await fetch(`${SERVER_URL}/api/user/update-username`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, newUsername: formatted }),
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        setUsernameError(data.error || 'Failed to update username');
-      } else {
-        const updatedUser = { ...user, username: data.username };
-        useStore.getState().setUser(updatedUser);
-        localStorage.setItem('callverse_user', JSON.stringify(updatedUser));
-        setUsernameSuccess(`Username updated to @${data.username}!`);
-        setNewUsername('');
-        if (showProfileModal) {
-          fetchProfileStats();
-        }
-      }
-    } catch (err) {
-      console.error('Error updating username:', err);
-      setUsernameError('Network error. Please try again.');
-    } finally {
-      setIsUpdatingUsername(false);
-    }
-  };
-
-  const handleTouchStart = (e) => {
-    if (isRefreshing) return;
-    const scrollTop = (mainContentRef.current?.scrollTop || 0) + (contentAreaRef.current?.scrollTop || 0);
-    if (scrollTop <= 0) {
-      canPull.current = true;
-      touchStartY.current = e.touches[0].clientY;
-      touchStartX.current = e.touches[0].clientX;
-    } else {
-      canPull.current = false;
-    }
-  };
-
-  const handleTouchMove = (e) => {
-    if (!canPull.current || isRefreshing) return;
-    const currentY = e.touches[0].clientY;
-    const currentX = e.touches[0].clientX;
-    const deltaY = currentY - touchStartY.current;
-    const deltaX = currentX - touchStartX.current;
-
-    // Check if horizontal swipe dominates
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-      return;
-    }
-
-    const scrollTop = (mainContentRef.current?.scrollTop || 0) + (contentAreaRef.current?.scrollTop || 0);
-    if (scrollTop <= 0 && deltaY > 0) {
-      // Smooth logarithmic / damping curve for pull distance
-      const distance = Math.min(deltaY * 0.45, 80);
-      setPullDistance(distance);
-      setIsPulling(true);
-    } else {
-      if (pullDistance > 0) {
-        setPullDistance(0);
-        setIsPulling(false);
-      }
-    }
-  };
-
-  const handleTouchEnd = async () => {
-    if (!canPull.current || isRefreshing) return;
-    canPull.current = false;
-    setIsPulling(false);
-
-    if (pullDistance >= 60) {
-      setIsRefreshing(true);
-      setPullDistance(52);
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        try { navigator.vibrate(15); } catch (e) {}
-      }
-      try {
-        await Promise.all([fetchFriends(), fetchHistory()]);
-      } catch (err) {
-        console.error('Pull to refresh error:', err);
-      } finally {
-        setTimeout(() => {
-          setIsRefreshing(false);
-          setPullDistance(0);
-        }, 300);
-      }
-    } else {
-      setPullDistance(0);
-    }
-  };
+  const navItems=[
+    {id:'friends',label:'Friends',icon:Users, count:requests.length},
+    {id:'add-friend',label:'Add',icon:UserPlus},
+    {id:'history',label:'History',icon:Clock},
+    {id:'settings',label:'Settings',icon:Settings},
+  ];
 
   return (
-    <div className="dashboard-layout">
-      {/* Welcome Toast Notification */}
-      {welcomeToast && (
-        <div className="welcome-toast glass animate-slideUp">
-          <Smile size={18} className="toast-icon" />
-          <span>{welcomeToast}</span>
-        </div>
-      )}
-
-      {/* First-time Welcome Popup */}
+    <div className="dash">
+      {welcomeToast && <div className="dash__toast"><span className="dash__toastDot" />{welcomeToast}</div>}
+      {toastMsg && <div className="dash__toast"><CheckCircle2 size={14}/>{toastMsg}</div>}
       {showWelcomePopup && (
-        <div className="welcome-popup-overlay">
-          <div className="welcome-popup-content glass-card animate-scaleUp">
-            <div className="welcome-popup-badge">
-              <Sparkles size={24} />
+        <div className="dash__overlay" onClick={()=>setShowWelcomePopup(false)}>
+          <div className="dash__sheet" onClick={e=>e.stopPropagation()}>
+            <div className="dash__sheetIcon"><Sparkles size={18}/></div>
+            <h2 className="display" style={{fontSize:26, marginBottom:8}}>Welcome to CallVerse</h2>
+            <p style={{color:'var(--text-2)', fontSize:13, lineHeight:1.6}}>Invite code lives for 24 hours. Add friends, wait for online dot, call. That’s it.</p>
+            <div className="dash__steps">
+              <div className="dash__step"><span>01</span><p>Copy your invite code and share it.</p></div>
+              <div className="dash__step"><span>02</span><p>Accept requests — buddies rise to top.</p></div>
+              <div className="dash__step"><span>03</span><p>Tap voice or video when dot is green.</p></div>
             </div>
-            <h2>Welcome to CallVerse! 🚀</h2>
-            <p>Your privacy-first, high-quality, lightweight calling app is ready.</p>
-            <div className="welcome-steps">
-              <div className="step-row">
-                <span className="step-num">1</span>
-                <p>Share your <strong>24-hour Invite Code</strong> with friends to connect.</p>
-              </div>
-              <div className="step-row">
-                <span className="step-num">2</span>
-                <p>Wait for them to accept, or accept incoming requests in the dashboard.</p>
-              </div>
-              <div className="step-row">
-                <span className="step-num">3</span>
-                <p>Click "Call" when they are online to connect instantly!</p>
-              </div>
-            </div>
-            <button className="home-btn home-btn--primary welcome-get-started-btn" onClick={() => setShowWelcomePopup(false)}>
-              Get Started
-            </button>
+            <button className="btn btn--primary" style={{width:'100%'}} onClick={()=>setShowWelcomePopup(false)}>Enter</button>
           </div>
         </div>
       )}
-
-      {/* Profile Details Modal */}
       {showProfileModal && (
-        <div className="profile-modal-overlay" onClick={() => setShowProfileModal(false)}>
-          <div className="profile-modal-content glass-card animate-scaleUp" onClick={(e) => e.stopPropagation()}>
-            <button 
-              className="profile-modal-close" 
-              onClick={() => setShowProfileModal(false)}
-              aria-label="Close profile modal"
-            >
-              <X size={20} />
-            </button>
-
-            {isProfileLoading ? (
-              <div className="profile-modal-loading">
-                <RotateCw size={32} className="ptr-spinning" />
-                <p>Loading profile stats...</p>
+        <div className="dash__overlay" onClick={()=>setShowProfileModal(false)}>
+          <div className="dash__sheet" onClick={e=>e.stopPropagation()} style={{maxWidth:460}}>
+            <button className="dash__close" onClick={()=>setShowProfileModal(false)}><X size={14}/></button>
+            {isProfileLoading ? <div style={{padding:40, textAlign:'center', color:'var(--text-2)'}}><RotateCw size={20} className="spin" style={{margin:'0 auto 10px', display:'block'}}/>Loading…</div>
+            : profileError ? <div style={{padding:24, textAlign:'center'}}><AlertCircle size={20} style={{margin:'0 auto 8px', display:'block'}}/><p style={{fontSize:13, color:'var(--text-2)'}}>{profileError}</p><button className="btn btn--secondary" style={{marginTop:12}} onClick={fetchProfile}>Retry</button></div>
+            : <>
+              <div style={{textAlign:'center', marginBottom:18}}>
+                <div className="dash__avatarLg">{(profileStats?.username||user?.username||'U').charAt(0).toUpperCase()}</div>
+                <div style={{fontWeight:700, fontSize:16}}>@{profileStats?.username||user?.username}</div>
+                <div className="mono" style={{fontSize:11, color:'var(--text-3)', marginTop:4}}>{formatJoined(profileStats?.created_at||user?.created_at)}</div>
               </div>
-            ) : profileError ? (
-              <div className="profile-modal-error">
-                <AlertCircle size={32} color="var(--danger)" />
-                <p>{profileError}</p>
-                <button className="home-btn home-btn--primary" onClick={fetchProfileStats} style={{ marginTop: '12px', padding: '10px 20px' }}>
-                  Try Again
-                </button>
+              <div className="dash__stats3">
+                <div><span className="mono labelSm">Friends</span><b>{profileStats?.friends_count ?? friends.length}</b></div>
+                <div><span className="mono labelSm">Talk time</span><b>{formatTalk(profileStats?.total_talk_time||0)}</b></div>
+                <div><span className="mono labelSm">Calls</span><b>{profileStats?.total_calls??0}</b></div>
               </div>
-            ) : (
-              <>
-                <div className="profile-modal-header">
-                  <div className="profile-modal-avatar">
-                    {(profileStats?.username || user?.username || 'U').charAt(0).toUpperCase()}
-                  </div>
-                  <h2 className="profile-modal-username">@{profileStats?.username || user?.username}</h2>
-                  <div className="profile-modal-joined">
-                    <Calendar size={14} />
-                    <span>{formatJoinedDate(profileStats?.created_at || user?.created_at)}</span>
-                  </div>
-                </div>
-
-                <div className="profile-stats-grid">
-                  <div className="profile-stat-card">
-                    <div className="profile-stat-icon friends-stat">
-                      <Users size={18} />
-                    </div>
-                    <div className="profile-stat-value">{profileStats?.friends_count ?? friends.length}</div>
-                    <div className="profile-stat-label">Friends</div>
-                  </div>
-
-                  <div className="profile-stat-card">
-                    <div className="profile-stat-icon talktime-stat">
-                      <Clock size={18} />
-                    </div>
-                    <div className="profile-stat-value">{formatTalkTime(profileStats?.total_talk_time || 0)}</div>
-                    <div className="profile-stat-label">Talk Time</div>
-                  </div>
-
-                  <div className="profile-stat-card">
-                    <div className="profile-stat-icon calls-stat">
-                      <Phone size={18} />
-                    </div>
-                    <div className="profile-stat-value">{profileStats?.total_calls ?? 0}</div>
-                    <div className="profile-stat-label">Total Calls</div>
-                  </div>
-                </div>
-
-                <div className="profile-top-friends-section">
-                  <div className="profile-section-title">
-                    <Sparkles size={16} className="text-primary" />
-                    <span>Top 3 Most Talked With</span>
-                  </div>
-
-                  {profileStats?.top_friends && profileStats.top_friends.length > 0 ? (
-                    <div className="top-friends-list">
-                      {profileStats.top_friends.map((friend, idx) => (
-                        <div key={friend.id || idx} className="top-friend-item">
-                          <div className="top-friend-rank">#{idx + 1}</div>
-                          <div className="user-avatar small">
-                            {(friend.alias || friend.username || '?').charAt(0).toUpperCase()}
-                          </div>
-                          <div className="top-friend-info">
-                            <span className="top-friend-name">{friend.alias || friend.username}</span>
-                            {friend.alias && <span className="top-friend-username">@{friend.username}</span>}
-                          </div>
-                          <div className="top-friend-badge">
-                            <Clock size={12} />
-                            <span>{formatTalkTime(friend.lifetime_talk_seconds || 0)}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="top-friends-empty">
-                      <Phone size={24} />
-                      <p>No call history yet</p>
-                      <span>Start calling your friends to build stats!</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="profile-modal-actions">
-                  <button 
-                    className="profile-modal-btn profile-modal-btn-change"
-                    onClick={() => {
-                      setShowProfileModal(false);
-                      navigate('/settings');
-                    }}
-                  >
-                    <Edit2 size={16} />
-                    Change Username
-                  </button>
-                  <button 
-                    className="profile-modal-btn profile-modal-btn-close"
-                    onClick={() => setShowProfileModal(false)}
-                  >
-                    Close
-                  </button>
-                </div>
-              </>
-            )}
+              <div style={{marginTop:16, border:'1px solid var(--line)', borderRadius:12, padding:14}}>
+                <div className="label" style={{marginBottom:10}}>Most talked with</div>
+                {profileStats?.top_friends?.length ? profileStats.top_friends.map((f,i)=>(
+                  <div key={f.id||i} className="dash__topRow"><span className="mono" style={{fontSize:11, color:'var(--text-3)'}}>0{i+1}</span><div className="dash__avatarSm">{(f.alias||f.username||'?').charAt(0).toUpperCase()}</div><div style={{flex:1, minWidth:0}}><div style={{fontSize:13, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{f.alias||f.username}</div>{f.alias && <div className="mono" style={{fontSize:11, color:'var(--text-3)'}}>@{f.username}</div>}</div><span className="mono" style={{fontSize:12, color:'var(--accent)'}}>{formatTalk(f.lifetime_talk_seconds||0)}</span></div>
+                )) : <div className="mono" style={{fontSize:12, color:'var(--text-3)', textAlign:'center', padding:12}}>No calls yet</div>}
+              </div>
+              <div style={{display:'flex', gap:8, marginTop:16}}><button className="btn btn--primary" style={{flex:1}} onClick={()=>{setShowProfileModal(false); navigate('/settings');}}>Change username</button><button className="btn btn--ghost" onClick={()=>setShowProfileModal(false)}>Close</button></div>
+            </>}
           </div>
         </div>
       )}
 
-      {/* Sidebar */}
-      <aside className="sidebar glass">
-        <div className="sidebar-header">
-          <div 
-            className="user-profile" 
-            onClick={openProfileModal} 
-            role="button" 
-            tabIndex={0}
-            title="Click to view profile & stats"
-          >
-            <div className="user-avatar">{user?.username?.charAt(0).toUpperCase()}</div>
-            <div className="user-info">
-              <h3>{user?.username}</h3>
-              <span className="user-status">Online • View Stats</span>
-            </div>
-          </div>
+      <aside className="dash__rail">
+        <button className="dash__railAvatar" onClick={openProfile} title="Profile">
+          <span className="dash__avatar">{user?.username?.charAt(0).toUpperCase()}</span>
+          <span className="dash__onlineDot" />
+        </button>
+        <div className="dash__railNav">
+          {navItems.map(it=>(
+            <button key={it.id} className={`dash__railBtn ${activeTab===it.id ? 'is-active':''}`} onClick={()=>navigate(it.id==='friends'?'/dashboard': it.id==='add-friend'?'/addfriend' : `/${it.id}`)} aria-label={it.label}>
+              <it.icon size={18} strokeWidth={1.75}/>
+              {it.count ? <span className="dash__badge">{it.count}</span> : null}
+            </button>
+          ))}
         </div>
-
-        <nav className="sidebar-nav">
-          <button 
-            className={`nav-item ${activeTab === 'friends' ? 'active' : ''}`}
-            onClick={() => navigate('/dashboard')}
-          >
-            <Users size={20} />
-            Friends
-            {requests.length > 0 && <span className="badge">{requests.length}</span>}
-          </button>
-          <button 
-            className={`nav-item ${activeTab === 'add-friend' ? 'active' : ''}`}
-            onClick={() => navigate('/addfriend')}
-          >
-            <UserPlus size={20} />
-            Add Friend
-          </button>
-          <button 
-            className={`nav-item ${activeTab === 'history' ? 'active' : ''}`}
-            onClick={() => navigate('/history')}
-          >
-            <Clock size={20} />
-            Call History
-          </button>
-          <button 
-            className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => navigate('/settings')}
-          >
-            <Settings size={20} />
-            Settings
-          </button>
-        </nav>
+        <div className="dash__railBottom">
+          <button className="dash__railBtn" onClick={()=>{const n=theme==='dark'?'light': theme==='light'?'bw':'dark'; useStore.getState().setTheme(n);}} title={theme}>{theme==='light'?<Sun size={16}/>: theme==='bw'?<Palette size={16}/>:<Moon size={16}/>}</button>
+          <button className="dash__railBtn" onClick={handleSignOut} title="Sign out"><LogOut size={16}/></button>
+        </div>
       </aside>
 
-      {/* Main Content */}
-      <main 
-        className="main-content"
-        ref={mainContentRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
-      >
-        {/* Pull to Refresh Indicator */}
-        <div 
-          className={`pull-to-refresh-container ${isRefreshing ? 'refreshing' : ''} ${isPulling ? 'pulling' : ''}`}
-          style={{
-            transform: `translateY(${isRefreshing ? 16 : Math.max(0, pullDistance - 36)}px)`,
-            opacity: isRefreshing ? 1 : Math.min(Math.max(0, (pullDistance - 10) / 40), 1),
-            pointerEvents: 'none'
-          }}
-        >
-          <div className="pull-to-refresh-indicator glass">
-            <RotateCw 
-              size={16} 
-              className={`ptr-icon ${isRefreshing ? 'ptr-spinning' : ''}`}
-              style={{
-                transform: isRefreshing ? undefined : `rotate(${pullDistance * 5}deg)`
-              }}
-            />
-            <span className="ptr-text">
-              {isRefreshing 
-                ? 'Refreshing...' 
-                : pullDistance >= 60 
-                ? 'Release to refresh' 
-                : 'Pull to refresh'}
-            </span>
-          </div>
+      <div className="dash__main" ref={mainRef} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}>
+        <div className={`dash__pull ${isRefreshing?'is-refreshing':''} ${isPulling?'is-pulling':''}`} style={{transform:`translateY(${isRefreshing?12: Math.max(0,pullDistance-34)}px)`, opacity: isRefreshing?1: Math.min(Math.max(0,(pullDistance-10)/36),1)}}>
+          <span className={`dash__pullIcon ${isRefreshing?'spin':''}`}><RotateCw size={14}/></span>
+          <span className="mono" style={{fontSize:11}}>{isRefreshing?'Refreshing…': pullDistance>=58?'Release': 'Pull'}</span>
         </div>
 
-        <div 
-          className="content-area"
-          ref={contentAreaRef}
-          style={{
-            transform: (pullDistance > 0 || isRefreshing) 
-              ? `translateY(${isRefreshing ? 28 : Math.min(pullDistance * 0.45, 36)}px)` 
-              : 'translateY(0px)',
-            transition: isPulling ? 'none' : 'transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)'
-          }}
-        >
-          {activeTab === 'friends' && (
-            <div className="friends-view animate-fadeIn">
-              
-              {/* Friends Header: Search & Theme Toggle */}
-              <div className="friends-header-actions glass-card" style={{ marginBottom: '24px', padding: '12px 16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-                <div className="search-bar" style={{ display: 'flex', position: 'relative', flex: 1 }}>
-                  <input 
-                    type="text" 
-                    placeholder="Search your friends..." 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      borderRadius: '12px',
-                      background: 'var(--input-bg)',
-                      border: '1px solid var(--border)',
-                      color: 'var(--text-primary)',
-                      fontSize: '14px'
-                    }}
-                  />
-                </div>
-                
-                {/* Quick Theme Selector Button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = theme === 'dark' ? 'light' : theme === 'light' ? 'bw' : 'dark';
-                    useStore.getState().setTheme(next);
-                  }}
-                  title={`Current Theme: ${theme.toUpperCase()} (Click to toggle)`}
-                  className="theme-quick-btn"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '10px 14px',
-                    borderRadius: '12px',
-                    background: 'var(--input-bg)',
-                    border: '1px solid var(--border)',
-                    color: 'var(--text-primary)',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.2s ease',
-                    flexShrink: 0
-                  }}
-                >
-                  {theme === 'light' ? <Sun size={18} color="#f59e0b" /> : theme === 'bw' ? <Palette size={18} /> : <Moon size={18} color="#8b83ff" />}
-                  <span style={{ textTransform: 'capitalize' }}>{theme}</span>
-                </button>
-              </div>
-              {requests.length > 0 && (
-                <div className="requests-section">
-                  <h2>Pending Requests</h2>
-                  <div className="list-container">
-                    {requests.map(req => (
-                      <div key={req.id} className="list-item glass-card">
-                        <div className="item-info">
-                          <div className="user-avatar small">{req.username.charAt(0).toUpperCase()}</div>
-                          <span>{req.username}</span>
+        <header className="dash__header">
+          <div className="dash__headerLeft">
+            <h1 className="display dash__h1">{activeTab==='friends'?'Friends': activeTab==='add-friend'?'Add friend': activeTab==='history'?'History':'Settings'}</h1>
+            <span className="mono dash__count">{activeTab==='friends'? `${sortedFriends.length} · ${requests.length} pending` : activeTab==='history'? `${filteredHistory.length} calls` : ''}</span>
+          </div>
+          <div className="dash__headerRight">
+            <button className="dash__invite" onClick={copyInvite} title="Copy invite code">
+              <Hash size={12}/><span className="mono">{user?.invite_code || '—'}</span>{copied? <Check size={12}/>: <Copy size={12}/>}
+            </button>
+            <div className="dash__search">
+              <Search size={14}/><input placeholder="Search" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
+            </div>
+          </div>
+        </header>
+
+        <div className="dash__content" ref={contentRef} style={{transform: pullDistance? `translateY(${Math.min(pullDistance*0.38,30)}px)`: undefined, transition: isPulling? 'none':'transform 220ms var(--ease)'}}>
+          {activeTab==='friends' && (
+            <div className="stack">
+              {requests.length>0 && (
+                <section className="panel">
+                  <div className="panel__head"><span className="label">Requests</span><span className="mono" style={{fontSize:11, color:'var(--text-3)'}}>{requests.length}</span></div>
+                  <div className="panel__list">
+                    {requests.map(r=>(
+                      <div key={r.id} className="row">
+                        <div className="row__left"><span className="dash__avatarSm">{r.username.charAt(0).toUpperCase()}</span><span style={{fontWeight:600, fontSize:13}}>{r.username}</span><span className="mono" style={{fontSize:11, color:'var(--text-3)'}}>@{r.username}</span></div>
+                        <div className="row__actions"><button className="btn btn--primary" style={{padding:'7px 12px', fontSize:12}} onClick={()=>handleAccept(r.id)}><Check size={12}/> Accept</button><button className="btn btn--ghost" style={{padding:'7px 12px', fontSize:12}} onClick={()=>handleDecline(r.id)}><X size={12}/> Decline</button></div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+              <section className="panel">
+                <div className="panel__head"><span className="label">Directory</span><span className="mono" style={{fontSize:11, color:'var(--text-3)'}}>{sortedFriends.length}</span></div>
+                {sortedFriends.length===0 ? (
+                  <div className="empty"><Users size={20} strokeWidth={1.5}/><p className="display" style={{fontSize:18}}>No one yet</p><span className="mono" style={{fontSize:12, color:'var(--text-3)'}}>Add a friend with their username or 24h code.</span><button className="btn btn--secondary" onClick={()=>navigate('/addfriend')}>Add friend</button></div>
+                ) : (
+                  <div className="panel__list">
+                    {sortedFriends.map(f=>(
+                      <div key={f.id} className="row row--hover" onClick={()=>navigate(`/friend/${f.id}`,{state:{friend:f,history}})}>
+                        <div className="row__left">
+                          <span className="dash__avatarSm" style={{position:'relative'}}>{(f.alias||f.username).charAt(0).toUpperCase()}<span className={`dash__dot ${f.isOnline?'is-on':''}`} /></span>
+                          <div style={{minWidth:0}}>
+                            <div style={{display:'flex', alignItems:'center', gap:6}}><span style={{fontWeight:600, fontSize:13}}>{f.alias||f.username}</span>{f.is_buddy && <Star size={11} fill="#FFB224" color="#FFB224"/>}<span className={`mono status ${f.isOnline?'is-online':''}`} style={{fontSize:10}}>{f.isOnline?'online':'offline'}</span></div>
+                            {f.alias && <div className="mono" style={{fontSize:11, color:'var(--text-3)'}}>@{f.username}</div>}
+                          </div>
                         </div>
-                        <div className="item-actions">
-                          <button className="action-btn accept" onClick={() => handleAcceptRequest(req.id)}>
-                            <Check size={18} />
-                          </button>
-                          <button className="action-btn decline" onClick={() => handleDeclineRequest(req.id)}>
-                            <X size={18} />
-                          </button>
+                        <div className="row__actions" onClick={e=>e.stopPropagation()}>
+                          <button className={`iconBtn ${!f.isOnline?'is-disabled':''}`} onClick={()=>startCall(f.id,'voice')} aria-label="Voice"><Phone size={14}/></button>
+                          <button className={`iconBtn iconBtn--accent ${!f.isOnline?'is-disabled':''}`} onClick={()=>startCall(f.id,'video')} aria-label="Video"><Video size={14}/></button>
+                          <ArrowUpRight size={14} style={{color:'var(--text-4)', marginLeft:4}}/>
                         </div>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-
-              <h2>Your Friends</h2>
-              {sortedFriends.length === 0 ? (
-                <div className="empty-state">
-                  <Users size={48} />
-                  <p>No friends yet. Add someone to start calling!</p>
-                </div>
-              ) : (
-                <div className="list-container">
-                  {sortedFriends.map(friend => (
-                    <div key={friend.id} className="list-item glass-card">
-                      <div 
-                        className="item-info" 
-                        style={{ cursor: 'pointer' }} 
-                        onClick={() => navigate(`/friend/${friend.id}`, { state: { friend, history } })}
-                      >
-                        <div className="user-avatar small relative">
-                          {(friend.alias || friend.username).charAt(0).toUpperCase()}
-                          <span className={`status-dot ${friend.isOnline ? 'online' : 'offline'}`} />
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            {friend.is_buddy ? <Star size={14} fill="#FCD34D" color="#FCD34D" /> : null}
-                            {friend.alias || friend.username}
-                          </span>
-                          {friend.alias && <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>@{friend.username}</span>}
-                        </div>
-                      </div>
-                      <div className="call-actions">
-                        <button 
-                          className={`call-btn voice-btn ${!friend.isOnline ? 'offline' : ''}`} 
-                          onClick={() => startCall(friend.id, 'voice')}
-                          title="Voice Call"
-                        >
-                          <Phone size={18} />
-                        </button>
-                        <button 
-                          className={`call-btn video-btn ${!friend.isOnline ? 'offline' : ''}`} 
-                          onClick={() => startCall(friend.id, 'video')}
-                          title="Video Call"
-                        >
-                          <Video size={18} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                )}
+              </section>
             </div>
           )}
 
-          {toastMsg && (
-            <div className="welcome-toast glass animate-slideUp" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
-              <CheckCircle2 size={18} className="toast-icon" />
-              <span>{toastMsg}</span>
-            </div>
-          )}
-          {activeTab === 'add-friend' && (
-            <div className="add-friend-view animate-fadeIn glass-card" style={{ padding: '32px', maxWidth: '600px', margin: '0 auto' }}>
-              <h2 style={{ marginBottom: '24px', fontSize: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>Add Friend</h2>
-              <div style={{ background: 'var(--card-inner-bg)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)' }}>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '20px' }}>Enter your friend's exact username or their 24-hour invite code to send a request.</p>
-                
-                <form className="add-friend-form" onSubmit={handleAddFriend} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <input 
-                    type="text" 
-                    placeholder="Username or 24h code..." 
-                    value={addInput}
-                    onChange={(e) => setAddInput(e.target.value)}
-                    style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text-primary)', fontSize: '16px' }}
-                  />
-                  <button 
-                    type="submit" 
-                    className="home-btn home-btn--primary"
-                    style={{
-                      background: addInput.trim() ? 'var(--primary)' : 'var(--btn-disabled-bg)',
-                      color: addInput.trim() ? '#fff' : 'var(--btn-disabled-text)',
-                      transition: 'all 0.3s ease',
-                      padding: '16px',
-                      width: '100%',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <UserPlus size={20} />
-                    <span>Send Friend Request</span>
-                  </button>
-                </form>
-              </div>
-            </div>
+          {activeTab==='add-friend' && (
+            <section className="panel" style={{maxWidth:560}}>
+              <div className="panel__head"><span className="label">Add friend</span></div>
+              <p className="mono" style={{fontSize:12, color:'var(--text-2)', lineHeight:1.6, marginBottom:14}}>Enter exact username or 24-hour invite code. Request is instant if they’re online.</p>
+              <form onSubmit={handleAddFriend} className="stackSm">
+                <div className="field__wrap"><Hash size={14}/><input placeholder="username or 8-char code" value={addInput} onChange={e=>setAddInput(e.target.value)} style={{flex:1}}/><span className="mono" style={{fontSize:11, color:'var(--text-3)'}}>{addInput.length}/24</span></div>
+                <button type="submit" className="btn btn--primary" disabled={!addInput.trim()}><UserPlus size={14}/> Send request</button>
+              </form>
+            </section>
           )}
 
-          {activeTab === 'history' && (
-            <div className="history-view animate-fadeIn">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h2 style={{ marginBottom: 0 }}>Call History</h2>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', overflowX: 'auto', paddingBottom: '8px' }}>
-                {['all', 'missed', 'incoming', 'outgoing'].map(filter => (
-                  <button
-                    key={filter}
-                    onClick={() => setHistoryFilter(filter)}
-                    style={{
-                      padding: '8px 16px',
-                      borderRadius: '20px',
-                      background: historyFilter === filter ? 'var(--primary)' : 'var(--input-bg)',
-                      color: historyFilter === filter ? '#fff' : 'var(--text-secondary)',
-                      border: '1px solid var(--border)',
-                      cursor: 'pointer',
-                      textTransform: 'capitalize',
-                      fontSize: '13px',
-                      fontWeight: '500',
-                      whiteSpace: 'nowrap',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    {filter}
-                  </button>
-                ))}
-              </div>
-              
-              {filteredHistory.length === 0 ? (
-                <div className="empty-state">
-                  <Clock size={48} />
-                  <p>No {historyFilter !== 'all' ? historyFilter : ''} call history found.</p>
-                </div>
-              ) : (
-                <div className="list-container">
-                  {filteredHistory.map(call => (
-                    <div key={call.id} className="list-item glass-card history-item">
-                      <div className="item-info">
-                        <div className={`call-icon ${call.type}`}>
-                          {call.type === 'incoming' ? <Phone size={16} /> : <Phone size={16} style={{ transform: 'rotate(135deg)' }} />}
-                        </div>
-                        <div className="history-details">
-                          <span className="history-name">{call.other_user_alias || call.other_user}</span>
-                          <span className={`history-status ${call.status !== 'completed' ? 'history-status-missed' : ''}`}>
-                            {call.status === 'completed' 
-                              ? (call.type === 'incoming' ? 'Incoming Call' : 'Outgoing Call')
-                              : call.status === 'declined' ? 'Declined'
-                              : call.status === 'missed' ? 'Missed Call'
-                              : 'Not Answered'}
-                            {call.status === 'completed' && ` • ${Math.floor(call.duration / 60)}m ${call.duration % 60}s`}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="history-time">{formatDistanceToNow(new Date(call.timestamp * 1000), { addSuffix: true })}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'settings' && (
-            <div className="settings-view animate-fadeIn glass-card" style={{ padding: '32px', maxWidth: '600px', margin: '0 auto' }}>
-              <h2 style={{ marginBottom: '24px', fontSize: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>Settings</h2>
-              
-              {/* Account & Username Section */}
-              <div className="settings-section" style={{ marginBottom: '32px' }}>
-                <h3 style={{ fontSize: '16px', color: 'var(--primary-light)', marginBottom: '16px' }}>Account & Username</h3>
-                <div style={{ background: 'var(--card-inner-bg)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
-                  <div style={{ marginBottom: '16px' }}>
-                    <label style={{ display: 'block', marginBottom: '6px', color: 'var(--text-secondary)', fontSize: '13px' }}>Current Username</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px', fontWeight: '600', color: 'var(--text-primary)' }}>
-                      <span style={{ color: 'var(--primary-light)' }}>@</span>{user?.username}
-                    </div>
+          {activeTab==='history' && (
+            <section className="panel">
+              <div className="panel__head"><span className="label">History</span><div className="seg">{['all','missed','incoming','outgoing'].map(k=> <button key={k} className={`seg__btn ${historyFilter===k?'is-active':''}`} onClick={()=>setHistoryFilter(k)}>{k}</button>)}</div></div>
+              {filteredHistory.length===0 ? <div className="empty"><Clock size={20}/><p className="mono" style={{fontSize:12, color:'var(--text-3)'}}>No {historyFilter} calls</p></div>
+              : <div className="timeline">
+                {filteredHistory.map(c=>(
+                  <div key={c.id} className="tRow">
+                    <div className="tRow__left"><span className={`tDot ${c.status!=='completed'?'is-missed': c.type==='incoming'?'is-in':'is-out'}`}><Phone size={10}/></span><div><div style={{fontSize:13, fontWeight:600}}>{c.other_user_alias||c.other_user}</div><div className="mono" style={{fontSize:11, color: c.status!=='completed'?'var(--danger)':'var(--text-3)'}}>{c.status==='completed'? c.type==='incoming'?'Incoming':'Outgoing' : c.status==='declined'?'Declined': c.status==='missed'?'Missed':'Not answered'} {c.status==='completed' ? `· ${Math.floor(c.duration/60)}:${String(c.duration%60).padStart(2,'0')}`:''} · {formatDistanceToNow(new Date(c.timestamp*1000),{addSuffix:true})}</div></div></div>
+                    <span className="mono" style={{fontSize:11, color:'var(--text-3)'}}>{format(new Date(c.timestamp*1000),'HH:mm')}</span>
                   </div>
+                ))}
+              </div>}
+            </section>
+          )}
 
-                  <form onSubmit={handleUpdateUsername} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div>
-                      <label htmlFor="settings-new-username" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-primary)', fontWeight: '500', fontSize: '14px' }}>
-                        Change Username
-                      </label>
-                      <input 
-                        id="settings-new-username"
-                        type="text" 
-                        placeholder="Enter new username..." 
-                        value={newUsername}
-                        onChange={(e) => {
-                          const sanitized = e.target.value.toLowerCase().replace(/\s+/g, '');
-                          setNewUsername(sanitized);
-                          if (usernameError) setUsernameError('');
-                          if (usernameSuccess) setUsernameSuccess('');
-                        }}
-                        maxLength={30}
-                        style={{
-                          width: '100%',
-                          padding: '12px 16px',
-                          borderRadius: '12px',
-                          background: 'var(--input-bg)',
-                          border: `1px solid ${usernameError ? 'var(--danger)' : usernameSuccess ? 'var(--success)' : 'var(--border)'}`,
-                          color: 'var(--text-primary)',
-                          fontSize: '15px',
-                          outline: 'none',
-                          transition: 'border-color 0.2s ease'
-                        }}
-                      />
-                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: '1.4' }}>
-                        3-30 characters. Lowercase letters, numbers, dots (.), and underscores (_) only.
-                      </p>
-                    </div>
-
-                    {usernameError && (
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '10px 14px',
-                        borderRadius: '10px',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid rgba(239, 68, 68, 0.3)',
-                        color: '#ef4444',
-                        fontSize: '13px'
-                      }}>
-                        <AlertCircle size={16} style={{ flexShrink: 0 }} />
-                        <span>{usernameError}</span>
-                      </div>
-                    )}
-
-                    {usernameSuccess && (
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '10px 14px',
-                        borderRadius: '10px',
-                        background: 'rgba(0, 217, 126, 0.1)',
-                        border: '1px solid rgba(0, 217, 126, 0.3)',
-                        color: 'var(--success)',
-                        fontSize: '13px'
-                      }}>
-                        <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
-                        <span>{usernameSuccess}</span>
-                      </div>
-                    )}
-
-                    <button
-                      type="submit"
-                      disabled={isUpdatingUsername || !newUsername.trim() || newUsername.trim() === user?.username}
-                      className="home-btn home-btn--primary"
-                      style={{
-                        marginTop: '6px',
-                        padding: '12px 20px',
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        justifyContent: 'center',
-                        background: (isUpdatingUsername || !newUsername.trim() || newUsername.trim() === user?.username)
-                          ? 'var(--btn-disabled-bg)'
-                          : 'var(--primary)',
-                        color: (isUpdatingUsername || !newUsername.trim() || newUsername.trim() === user?.username)
-                          ? 'var(--btn-disabled-text)'
-                          : '#ffffff',
-                        cursor: (isUpdatingUsername || !newUsername.trim() || newUsername.trim() === user?.username)
-                          ? 'not-allowed'
-                          : 'pointer',
-                        opacity: 1,
-                        transition: 'all 0.2s ease'
-                      }}
-                    >
-                      {isUpdatingUsername ? (
-                        <>
-                          <RotateCw size={16} className="ptr-spinning" />
-                          <span>Updating...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Check size={16} />
-                          <span>Update Username</span>
-                        </>
-                      )}
-                    </button>
+          {activeTab==='settings' && (
+            <div className="stack">
+              <section className="panel">
+                <div className="panel__head"><span className="label">Account</span></div>
+                <div className="stackSm">
+                  <div className="kv"><span className="mono labelSm">Current</span><span style={{fontWeight:700}}>@{user?.username}</span></div>
+                  <form onSubmit={handleUpdateUsername} className="stackSm">
+                    <label className="field"><span className="label">New username</span><div className="field__wrap"><span className="mono" style={{fontSize:12, color:'var(--text-3)'}}>@</span><input placeholder="new handle" value={newUsername} onChange={e=>{setNewUsername(e.target.value.toLowerCase().replace(/\s+/g,'')); if(usernameError) setUsernameError(''); if(usernameSuccess) setUsernameSuccess('');}} maxLength={30} /><span className="mono" style={{fontSize:11, color:'var(--text-3)'}}>{newUsername.length}/30</span></div><span className="mono" style={{fontSize:11, color:'var(--text-3)'}}>3-30 · a-z 0-9 . _</span></label>
+                    {usernameError && <div className="alert alert--error"><AlertCircle size={12}/>{usernameError}</div>}
+                    {usernameSuccess && <div className="alert alert--success"><CheckCircle2 size={12}/>{usernameSuccess}</div>}
+                    <button type="submit" disabled={isUpdatingUsername||!newUsername.trim()|| newUsername.trim()===user?.username} className="btn btn--primary" style={{alignSelf:'flex-start'}}>{isUpdatingUsername?<><RotateCw size={12} className="spin"/>Updating…</>:<><Check size={12}/>Update</>}</button>
                   </form>
                 </div>
-              </div>
-
-              {/* Appearance */}
-              <div className="settings-section" style={{ marginBottom: '32px' }}>
-                <h3 style={{ fontSize: '16px', color: 'var(--primary-light)', marginBottom: '16px' }}>Appearance</h3>
-                <div style={{ background: 'var(--card-inner-bg)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-primary)', fontWeight: '500' }}>App Theme</label>
-                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>Choose your preferred color theme.</p>
-                  <select 
-                    value={theme} 
-                    onChange={(e) => useStore.getState().setTheme(e.target.value)}
-                    style={{
-                      padding: '12px 16px', borderRadius: '12px', background: 'var(--input-bg)',
-                      color: 'var(--text-primary)', border: '1px solid var(--border)', width: '100%', outline: 'none'
-                    }}
-                  >
-                    <option value="dark" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>Dark Theme (Default)</option>
-                    <option value="light" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>Light Theme</option>
-                    <option value="bw" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>High Contrast (Black & White)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Profile & Invite Section */}
-              <div className="settings-section" style={{ marginBottom: '32px' }}>
-                <h3 style={{ fontSize: '16px', color: 'var(--primary-light)', marginBottom: '16px' }}>Profile & Invite</h3>
-                <div style={{ background: 'var(--card-inner-bg)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Your 24h Invite Code</p>
-                  <div 
-                    onClick={copyInviteCode}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      background: 'var(--input-bg)', padding: '16px', borderRadius: '12px',
-                      cursor: 'pointer', border: '1px solid var(--border)', transition: 'all 0.2s'
-                    }}
-                    onMouseOver={(e) => e.currentTarget.style.borderColor = 'var(--primary)'}
-                    onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
-                  >
-                    <span style={{ fontSize: '18px', letterSpacing: '2px', fontFamily: 'monospace', color: 'var(--primary-light)' }}>{user?.invite_code}</span>
-                    {copied ? <Check size={20} className="text-success" /> : <Copy size={20} color="var(--text-secondary)" />}
-                  </div>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '12px' }}>Share this code with your friends so they can add you.</p>
-                </div>
-              </div>
-
-              {/* Call Preferences */}
-              <div className="settings-section" style={{ marginBottom: '32px' }}>
-                <h3 style={{ fontSize: '16px', color: 'var(--primary-light)', marginBottom: '16px' }}>Call Preferences</h3>
-                <div style={{ background: 'var(--card-inner-bg)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
-                  <div style={{ marginBottom: '24px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-primary)', fontWeight: '500' }}>Ring Timeout</label>
-                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>How long your phone rings before a call ends.</p>
-                    <select 
-                      value={ringTimeout} 
-                      onChange={(e) => setRingTimeout(parseInt(e.target.value, 10))}
-                      style={{
-                        padding: '12px 16px', borderRadius: '12px', background: 'var(--input-bg)',
-                        color: 'var(--text-primary)', border: '1px solid var(--border)', width: '100%', outline: 'none'
-                      }}
-                    >
-                      <option value={15} style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>15 Seconds</option>
-                      <option value={30} style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>30 Seconds (Default)</option>
-                      <option value={45} style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>45 Seconds</option>
-                      <option value={60} style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>60 Seconds</option>
+              </section>
+              <section className="panel">
+                <div className="panel__head"><span className="label">Appearance</span></div>
+                <div className="stackSm">
+                  <div className="kv"><span className="mono labelSm">Theme</span>
+                    <select value={theme} onChange={e=>useStore.getState().setTheme(e.target.value)} className="select">
+                      <option value="dark">Ink (default)</option><option value="light">Paper</option><option value="bw">Mono</option>
                     </select>
                   </div>
-
-                  <div style={{ paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '12px', marginBottom: '16px' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={ringtoneEnabled} 
-                        onChange={(e) => {
-                          setRingtoneEnabled(e.target.checked);
-                          if (!e.target.checked) {
-                            ringtoneSynth.stop();
-                            setIsPreviewPlaying(false);
-                          }
-                        }}
-                        style={{ width: '20px', height: '20px', accentColor: 'var(--primary)' }}
-                      />
-                      <span style={{ color: 'var(--text-primary)', fontWeight: '500' }}>Enable Incoming Ringtone</span>
-                    </label>
-                    
-                    {ringtoneEnabled && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingLeft: '32px' }}>
-                        <div>
-                          <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>Sound Preset</label>
-                          <div style={{ display: 'flex', gap: '12px' }}>
-                            <select 
-                              value={selectedRingtone} 
-                              onChange={(e) => {
-                                setSelectedRingtone(e.target.value);
-                                if (isPreviewPlaying) ringtoneSynth.play(e.target.value, ringtoneVolume);
-                              }}
-                              style={{
-                                padding: '10px 16px', borderRadius: '10px', background: 'var(--input-bg)',
-                                color: 'var(--text-primary)', border: '1px solid var(--border)', flex: 1, outline: 'none'
-                              }}
-                            >
-                              <option value="marimba" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>Classic Marimba</option>
-                              <option value="whatsapp" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>WhatsApp Bell</option>
-                              <option value="signal" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>Signal Chime</option>
-                              <option value="telegram" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>Telegram Trill</option>
-                              <option value="bells" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>Echo Bells</option>
-                              <option value="pulse" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>Digital Pulse</option>
-                              <option value="zen" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>Zen Bowl</option>
-                              <option value="cyber" style={{background: 'var(--bg-surface)', color: 'var(--text-primary)'}}>Cyber Tech</option>
-                            </select>
-                            <button 
-                              onClick={() => togglePreview(selectedRingtone)}
-                              style={{
-                                padding: '0 20px', borderRadius: '10px',
-                                background: isPreviewPlaying ? 'rgba(239, 68, 68, 0.2)' : 'rgba(108, 99, 255, 0.2)',
-                                color: isPreviewPlaying ? '#ef4444' : 'var(--primary-light)',
-                                border: `1px solid ${isPreviewPlaying ? 'rgba(239, 68, 68, 0.4)' : 'rgba(108, 99, 255, 0.4)'}`,
-                                cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s'
-                              }}
-                            >
-                              {isPreviewPlaying ? 'Stop' : 'Play'}
-                            </button>
-                          </div>
-                        </div>
-                        {Capacitor.isNativePlatform() && (
-                          <div style={{ marginTop: '12px' }}>
-                            <button 
-                              onClick={async () => {
-                                try {
-                                  await Ringtone.pickRingtone();
-                                  alert('Custom Android ringtone saved successfully!');
-                                } catch (e) {
-                                  console.error(e);
-                                }
-                              }}
-                              style={{
-                                width: '100%', padding: '12px', borderRadius: '10px',
-                                background: 'var(--primary)', color: '#fff',
-                                border: 'none', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s'
-                              }}
-                            >
-                              Pick Android System Ringtone
-                            </button>
-                            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '8px' }}>
-                              This will override the sound preset above for incoming calls on Android.
-                            </p>
-                          </div>
-                        )}
-
-                        <div>
-                          <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>Volume</label>
-                          <input 
-                            type="range" 
-                            min="0" max="1" step="0.1" 
-                            value={ringtoneVolume}
-                            onChange={(e) => {
-                              const vol = parseFloat(e.target.value);
-                              useStore.getState().setRingtoneVolume(vol);
-                              ringtoneSynth.setVolume(vol);
-                            }}
-                            style={{ width: '100%', accentColor: 'var(--primary)' }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <div className="kv"><span className="mono labelSm">Invite code</span><button className="dash__invite" onClick={copyInvite}><Hash size={12}/><span className="mono">{user?.invite_code}</span>{copied?<Check size={12}/>:<Copy size={12}/>}</button></div>
+                  <p className="mono" style={{fontSize:11, color:'var(--text-3)'}}>Expires in 24h. Copy and share.</p>
                 </div>
-              </div>
-
-              <div style={{ marginTop: '40px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
-                <button 
-                  onClick={handleSignOut}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    padding: '12px 24px',
-                    background: 'rgba(239, 68, 68, 0.1)',
-                    color: '#ef4444',
-                    border: '1px solid rgba(239, 68, 68, 0.2)',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontWeight: '600',
-                    width: '100%',
-                    justifyContent: 'center',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  <LogOut size={18} />
-                  Sign Out
-                </button>
-              </div>
+              </section>
+              <section className="panel">
+                <div className="panel__head"><span className="label">Call preferences</span></div>
+                <div className="stackSm">
+                  <label className="field"><span className="label">Ring timeout</span><select value={ringTimeout} onChange={e=>setRingTimeout(parseInt(e.target.value,10))} className="select"><option value={15}>15s</option><option value={30}>30s</option><option value={45}>45s</option><option value={60}>60s</option></select></label>
+                  <label className="check"><input type="checkbox" checked={ringtoneEnabled} onChange={e=>{setRingtoneEnabled(e.target.checked); if(!e.target.checked){ringtoneSynth.stop(); setIsPreviewPlaying(false);}}} /><span>Enable ringtone</span></label>
+                  {ringtoneEnabled && (
+                    <div className="stackSm" style={{paddingLeft:4}}>
+                      <label className="field"><span className="label">Sound</span><div style={{display:'flex', gap:8}}><select value={selectedRingtone} onChange={e=>{setSelectedRingtone(e.target.value); if(isPreviewPlaying) ringtoneSynth.play(e.target.value, ringtoneVolume);}} className="select" style={{flex:1}}><option value="marimba">Marimba</option><option value="whatsapp">Bell</option><option value="signal">Signal</option><option value="telegram">Trill</option><option value="bells">Bells</option><option value="pulse">Pulse</option><option value="zen">Zen</option><option value="cyber">Cyber</option></select><button type="button" onClick={()=>togglePreview(selectedRingtone)} className={`btn ${isPreviewPlaying?'btn--ghost':'btn--secondary'}`} style={{padding:'8px 14px'}}>{isPreviewPlaying?'Stop':'Play'}</button></div></label>
+                      <label className="field"><span className="label">Volume</span><input type="range" min="0" max="1" step="0.05" value={ringtoneVolume} onChange={e=>{const v=parseFloat(e.target.value); useStore.getState().setRingtoneVolume(v); ringtoneSynth.setVolume(v);}} /></label>
+                      {Capacitor.isNativePlatform() && <button type="button" onClick={async()=>{try{await Ringtone.pickRingtone(); showToast('Ringtone saved');}catch{}}} className="btn btn--secondary">Pick system ringtone (Android)</button>}
+                    </div>
+                  )}
+                </div>
+              </section>
+              <button className="btn btn--ghost" onClick={handleSignOut} style={{alignSelf:'flex-start', color:'var(--danger)', borderColor:'rgba(229,72,77,0.25)'}}><LogOut size={14}/>Sign out</button>
             </div>
           )}
         </div>
-      </main>
+      </div>
     </div>
   );
 }
